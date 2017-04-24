@@ -3,9 +3,10 @@
 
 using System;
 using System.Security.Principal;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Authentication;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -13,6 +14,11 @@ namespace TestSites
 {
     public class StartupNtlmAuthentication
     {
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddAuthenticationCore(o => o.DefaultChallengeScheme = "NTLM");
+        }
+
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             // Simple error page without depending on Diagnostics.
@@ -51,18 +57,18 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.Authentication.ChallengeAsync();
+                        return context.ChallengeAsync();
                     }
                 }
 
                 if (context.Request.Path.Equals("/Forbidden"))
                 {
-                    return context.Authentication.ForbidAsync(AuthenticationManager.AutomaticScheme);
+                    return context.ForbidAsync();
                 }
 
                 if (context.Request.Path.Equals("/AutoForbid"))
                 {
-                    return context.Authentication.ChallengeAsync();
+                    return context.ChallengeAsync();
                 }
 
                 if (context.Request.Path.Equals("/RestrictedNegotiate"))
@@ -73,7 +79,7 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.Authentication.ChallengeAsync("Negotiate");
+                        return context.ChallengeAsync("Negotiate");
                     }
                 }
 
@@ -85,7 +91,7 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.Authentication.ChallengeAsync("NTLM");
+                        return context.ChallengeAsync("NTLM");
                     }
                 }
 
