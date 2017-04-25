@@ -16,7 +16,7 @@ namespace TestSites
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddAuthenticationCore(o => o.DefaultChallengeScheme = "NTLM");
+            services.AddAuthenticationCore();
         }
 
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
@@ -79,7 +79,7 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.ChallengeAsync("Negotiate");
+                        return context.ChallengeAsync("Windows");
                     }
                 }
 
@@ -91,7 +91,7 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.ChallengeAsync("NTLM");
+                        return context.ChallengeAsync("Windows");
                     }
                 }
 
