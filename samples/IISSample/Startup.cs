@@ -13,7 +13,7 @@ namespace IISSample
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddAuthentication();
+            services.AddAuthenticationCore();
             // These two middleware are registered via an IStartupFilter in UseIISIntegration but you can configure them here.
             services.Configure<IISOptions>(options =>
             {

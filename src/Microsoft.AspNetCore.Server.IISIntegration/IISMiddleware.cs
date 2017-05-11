@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -26,7 +26,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private readonly ILogger _logger;
         private readonly string _pairingToken;
 
-        public IISMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptions<IISOptions> options, string pairingToken, IEnumerable<IAuthenticationSchemeProvider> authentication)
+        public IISMiddleware(RequestDelegate next, ILoggerFactory loggerFactory, IOptions<IISOptions> options, string pairingToken, IAuthenticationSchemeProvider authentication)
         {
             if (next == null)
             {
@@ -48,13 +48,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _next = next;
             _options = options.Value;
 
+
             if (_options.ForwardWindowsAuthentication)
             {
-                var auth = authentication.FirstOrDefault();
-                if (auth != null)
-                {
-                    auth.AddScheme(new AuthenticationScheme("Windows", displayName: null, handlerType: typeof(AuthenticationHandler)));
-                }
+                authentication.AddScheme(new AuthenticationScheme("Windows", displayName: null, handlerType: typeof(AuthenticationHandler)));
             }
 
             _pairingToken = pairingToken;
@@ -83,6 +80,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 if (!StringValues.IsNullOrEmpty(header))
                 {
                     httpContext.Features.Set<ITlsConnectionFeature>(new ForwardedTlsConnectionFeature(_logger, header));
+                }
+            }
+
+            if (_options.ForwardWindowsAuthentication)
+            {
+                var result = await httpContext.AuthenticateAsync("Windows");
+                if (result.Succeeded)
+                {
+                    httpContext.User = result.Principal;
                 }
             }
 
