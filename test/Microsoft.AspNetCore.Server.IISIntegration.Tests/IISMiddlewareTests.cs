@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Net;
@@ -151,7 +151,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 .UseSetting("PORT", "12345")
                 .UseSetting("APPL_PATH", "/")
                 .UseIISIntegration()
-                .ConfigureServices(services => services.AddAuthentication())
                 .Configure(app =>
                 {
                     app.Run(async context => 
@@ -191,7 +190,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     {
                         options.ForwardWindowsAuthentication = forward;
                     });
-                    services.AddAuthenticationCore();
                 })
                 .Configure(app =>
                 {
@@ -245,8 +243,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 {
                     app.Run(context =>
                     {
-                        var auth = context.RequestServices.GetService<IAuthenticationSchemeProvider>();
-                        Assert.Null(auth);
                         assertsExecuted = true;
                         return Task.FromResult(0);
                     });
@@ -259,6 +255,5 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             Assert.True(assertsExecuted);
         }
-
     }
 }

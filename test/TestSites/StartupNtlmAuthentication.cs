@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -6,7 +6,6 @@ using System.Security.Principal;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -14,11 +13,6 @@ namespace TestSites
 {
     public class StartupNtlmAuthentication
     {
-        public void ConfigureServices(IServiceCollection services)
-        {
-            services.AddAuthenticationCore();
-        }
-
         public void Configure(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
             // Simple error page without depending on Diagnostics.
