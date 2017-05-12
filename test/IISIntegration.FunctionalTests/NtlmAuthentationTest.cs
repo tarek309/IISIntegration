@@ -76,7 +76,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.FunctionalTests
                         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                         Assert.Equal("Anonymous?True", responseText);
 
-                        /* Disabled for now 
+                        /* Disabled for due to https://github.com/aspnet/ServerTests/issues/82
                         response = await httpClient.GetAsync("/Restricted");
                         responseText = await response.Content.ReadAsStringAsync();
                         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
