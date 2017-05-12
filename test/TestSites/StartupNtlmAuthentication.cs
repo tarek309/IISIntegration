@@ -6,6 +6,7 @@ using System.Security.Principal;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -73,7 +74,7 @@ namespace TestSites
                     }
                     else
                     {
-                        return context.ChallengeAsync("Windows");
+                        return context.ChallengeAsync(IISMiddleware.AuthenticationScheme);
                     }
                 }
 

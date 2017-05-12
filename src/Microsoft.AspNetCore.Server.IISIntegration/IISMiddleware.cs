@@ -18,6 +18,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 {
     public class IISMiddleware
     {
+        public static readonly string AuthenticationScheme = "Windows";
+
         private const string MSAspNetCoreClientCert = "MS-ASPNETCORE-CLIENTCERT";
         private const string MSAspNetCoreToken = "MS-ASPNETCORE-TOKEN";
 
@@ -51,7 +53,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             if (_options.ForwardWindowsAuthentication)
             {
-                authentication.AddScheme(new AuthenticationScheme("Windows", displayName: null, handlerType: typeof(AuthenticationHandler)));
+                authentication.AddScheme(new AuthenticationScheme(AuthenticationScheme, displayName: null, handlerType: typeof(AuthenticationHandler)));
             }
 
             _pairingToken = pairingToken;
@@ -85,7 +87,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             if (_options.ForwardWindowsAuthentication)
             {
-                var result = await httpContext.AuthenticateAsync("Windows");
+                var result = await httpContext.AuthenticateAsync(AuthenticationScheme);
                 if (result.Succeeded)
                 {
                     httpContext.User = result.Principal;

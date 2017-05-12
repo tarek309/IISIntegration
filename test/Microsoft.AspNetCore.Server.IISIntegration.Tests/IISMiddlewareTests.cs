@@ -156,7 +156,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     app.Run(async context => 
                     {
                         var auth = context.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>();
-                        var windows = await auth.GetSchemeAsync("Windows");
+                        var windows = await auth.GetSchemeAsync(IISMiddleware.AuthenticationScheme);
                         Assert.NotNull(windows);
                         Assert.Null(windows.DisplayName);
                         Assert.Equal("Microsoft.AspNetCore.Server.IISIntegration.AuthenticationHandler", windows.HandlerType.FullName);
@@ -197,7 +197,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     {
                         var auth = context.RequestServices.GetService<IAuthenticationSchemeProvider>();
                         Assert.NotNull(auth);
-                        var windowsAuth = await auth.GetSchemeAsync("Windows");
+                        var windowsAuth = await auth.GetSchemeAsync(IISMiddleware.AuthenticationScheme);
                         if (forward)
                         {
                             Assert.NotNull(windowsAuth);
