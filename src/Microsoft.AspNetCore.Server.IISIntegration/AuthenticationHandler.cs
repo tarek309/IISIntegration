@@ -29,7 +29,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
             else
             {
-                return Task.FromResult(AuthenticateResult.None());
+                return Task.FromResult(AuthenticateResult.NoResult());
             }
         }
 
