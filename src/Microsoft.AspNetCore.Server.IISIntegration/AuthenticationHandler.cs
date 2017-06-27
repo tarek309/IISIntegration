@@ -77,15 +77,5 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _context = context;
             return Task.CompletedTask;
         }
-
-        public Task SignInAsync(ClaimsPrincipal user, AuthenticationProperties properties)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task SignOutAsync(AuthenticationProperties properties)
-        {
-            return Task.CompletedTask;
-        }
     }
 }
