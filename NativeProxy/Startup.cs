@@ -20,6 +20,9 @@ namespace NativeProxy
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
+            // TODO run dotnet.exe here with the path to the dll
+            // hard code it
+
             app.UseWebSockets().RunProxy(new ProxyOptions
             {
                 Scheme = "http",
