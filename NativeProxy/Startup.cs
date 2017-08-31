@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-
+using Microsoft.AspNetCore.Proxy;
 namespace NativeProxy
 {
     public class Startup
@@ -20,7 +20,12 @@ namespace NativeProxy
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
-            app.UseWebSockets().RunProxy();
+            app.UseWebSockets().RunProxy(new ProxyOptions
+            {
+                Scheme = "http",
+                Host = "localhost",
+                Port = "5000"
+            });
         }
     }
 }
