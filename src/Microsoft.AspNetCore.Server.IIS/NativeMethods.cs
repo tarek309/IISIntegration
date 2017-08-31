@@ -53,6 +53,9 @@ namespace Microsoft.AspNetCore.Server.IIS
         [return: MarshalAs(UnmanagedType.BStr)]
         public unsafe static extern string http_get_application_full_path();
 
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern bool http_shutdown();
+
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetModuleHandle(string lpModuleName);
 

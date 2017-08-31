@@ -40,9 +40,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "build", "build", "{7E80C58E
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IISIntegration.FunctionalTests", "test\IISIntegration.FunctionalTests\IISIntegration.FunctionalTests.csproj", "{4E3E1F5C-CD52-4CC0-A35F-D1FA1685D2FA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.AspNetCore.Server.IIS", "src\Microsoft.AspNetCore.Server.IIS\Microsoft.AspNetCore.Server.IIS.csproj", "{5C475A6A-8FF6-401F-A35E-01461312C8F6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Microsoft.AspNetCore.Server.IIS", "src\Microsoft.AspNetCore.Server.IIS\Microsoft.AspNetCore.Server.IIS.csproj", "{5C475A6A-8FF6-401F-A35E-01461312C8F6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NativeIISSample", "samples\NativeIISSample\NativeIISSample.csproj", "{9BC4AFCB-325D-4C81-8228-8CF301CE2F97}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NativeIISSample", "samples\NativeIISSample\NativeIISSample.csproj", "{9BC4AFCB-325D-4C81-8228-8CF301CE2F97}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
