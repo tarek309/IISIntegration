@@ -21,7 +21,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         internal AuthenticationScheme Scheme { get; private set; }
 
-        public Task<AuthenticateResult> AuthenticateAsync()
+        public Task<AuthenticateResult> AuthenticateAsync() 
         {
             var user = GetUser();
             if (user != null)
