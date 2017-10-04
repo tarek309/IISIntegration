@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Server.IIS;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Hosting.Server;
 
@@ -43,10 +42,10 @@ namespace Microsoft.AspNetCore.Hosting
             }
 
             // Check if in process
-            if (Microsoft.AspNetCore.Server.IIS.NativeMethods.is_ancm_loaded())
+            if (NativeMethods.is_ancm_loaded())
             {
                 // TODO put this in options and use path.
-                var applicationPath = Microsoft.AspNetCore.Server.IIS.NativeMethods.http_get_application_full_path();
+                var applicationPath = NativeMethods.http_get_application_full_path();
                 hostBuilder.UseContentRoot(applicationPath);
                 return hostBuilder.ConfigureServices(services =>
                 {
