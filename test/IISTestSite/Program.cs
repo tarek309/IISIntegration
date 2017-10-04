@@ -17,7 +17,7 @@ namespace IISTestSite
                     factory.AddConsole();
                     factory.AddFilter("Console", level => level >= LogLevel.Information);
                 })
-                .UseNativeIIS()
+                .UseIISIntegration()
                 .UseStartup("IISTestSite")
                 .Build();
 
