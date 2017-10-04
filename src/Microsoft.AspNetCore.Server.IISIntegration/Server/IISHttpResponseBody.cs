@@ -52,8 +52,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             WriteAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
         }
 
+        private int totalCount = 0;
+        private readonly object _countLock = new object();
         public override unsafe Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
+            lock(_countLock)
+            {
+                totalCount += count;
+                Console.WriteLine($"Before pipe Buffer size: {count}");
+                Console.WriteLine($"TotalCount before pipe size: {totalCount}");
+            }
             return _httpContext.WriteAsync(new ArraySegment<byte>(buffer, offset, count), cancellationToken);
         }
 

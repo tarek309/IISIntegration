@@ -36,7 +36,7 @@ namespace LargeResponseBodyRepo.Controllers
 
         public IActionResult GetFile()
         {
-            var fileResult = File("~/lib/jquery/dist/jquery.js", "application/txt");
+            var fileResult = File("~/lib/bootstrap/dist/css/bootstrap.min.css", "application/txt");
             return fileResult;
         }
     }

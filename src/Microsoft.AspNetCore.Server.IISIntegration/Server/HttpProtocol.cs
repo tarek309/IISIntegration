@@ -618,6 +618,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             Output.Reader.Complete();
         }
 
+        private readonly object _countLock = new object();
         private unsafe IISAwaitable WriteAsync(ReadableBuffer buffer)
         {
             var fCompletionExpected = false;
@@ -654,7 +655,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             else
             {
                 // REVIEW: Do we need to guard against this getting too big? It seems unlikely that we'd have more than say 10 chunks in real life
-                var dataChunks = new HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
+                var dataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
                 var currentChunk = 0;
 
                 // REVIEW: We don't really need this list since the memory is already pinned with the default pool,
@@ -675,10 +676,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     currentChunk++;
                 }
 
-                fixed (HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks = dataChunks)
-                {
-                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
-                }
+                //fixed (HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks = dataChunks)
+                //{
+
+                hr = NativeMethods.http_write_response_bytes(_pHttpContext, dataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                //}
 
                 // Free the handles
                 foreach (var handle in handles)
