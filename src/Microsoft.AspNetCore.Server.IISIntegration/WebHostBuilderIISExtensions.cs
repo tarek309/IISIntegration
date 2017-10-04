@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Server.IISIntegration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Server.IIS;
+using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Hosting.Server;
 
 namespace Microsoft.AspNetCore.Hosting
 {
@@ -37,6 +40,21 @@ namespace Microsoft.AspNetCore.Hosting
             if (hostBuilder.GetSetting(nameof(UseIISIntegration)) != null)
             {
                 return hostBuilder;
+            }
+
+            // Check if in process
+            if (Microsoft.AspNetCore.Server.IIS.NativeMethods.is_ancm_loaded())
+            {
+                // TODO put this in options and use path.
+                var applicationPath = Microsoft.AspNetCore.Server.IIS.NativeMethods.http_get_application_full_path();
+                hostBuilder.UseContentRoot(applicationPath);
+                return hostBuilder.ConfigureServices(services =>
+                {
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        services.AddSingleton<IServer, IISHttpServer>();
+                    }
+                });
             }
 
             var port = hostBuilder.GetSetting(ServerPort) ?? Environment.GetEnvironmentVariable($"ASPNETCORE_{ServerPort}");

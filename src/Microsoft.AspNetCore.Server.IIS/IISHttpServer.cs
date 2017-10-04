@@ -122,25 +122,4 @@ namespace Microsoft.AspNetCore.Server.IIS
     {
         HttpProtocol CreateHttpContext(IntPtr pHttpContext);
     }
-
-    public static class WebHostBuilderExtensions
-    {
-        public static IWebHostBuilder UseNativeIIS(this IWebHostBuilder builder)
-        {
-            if (NativeMethods.is_ancm_loaded())
-            {
-                // TODO put this in options and use path.
-                var path = NativeMethods.http_get_application_full_path();
-                builder.UseContentRoot(path);
-                return builder.ConfigureServices(services =>
-                {
-                    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                    {
-                        services.AddSingleton<IServer, IISHttpServer>();
-                    }
-                });
-            }
-            return builder;
-        }
-    }
 }

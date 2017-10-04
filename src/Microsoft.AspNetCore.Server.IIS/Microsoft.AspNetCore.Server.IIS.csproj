@@ -9,7 +9,6 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-
   <ItemGroup>
     <PackageReference Include="System.Security.Principal.Windows" />
     <PackageReference Include="Microsoft.AspNetCore.Hosting.Abstractions" />
