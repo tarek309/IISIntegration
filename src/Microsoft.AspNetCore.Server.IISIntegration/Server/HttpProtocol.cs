@@ -654,7 +654,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             else
             {
                 // REVIEW: Do we need to guard against this getting too big? It seems unlikely that we'd have more than say 10 chunks in real life
-                var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
+                var dataChunks = new HttpApiTypes.HTTP_DATA_CHUNK[nChunks];
                 var currentChunk = 0;
 
                 // REVIEW: We don't really need this list since the memory is already pinned with the default pool,
@@ -664,7 +664,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 foreach (var b in buffer)
                 {
                     ref var handle = ref handles[currentChunk];
-                    ref var chunk = ref pDataChunks[currentChunk];
+                    ref var chunk = ref dataChunks[currentChunk];
 
                     handle = b.Retain(true);
 
@@ -675,7 +675,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     currentChunk++;
                 }
 
-                hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                fixed (HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks = dataChunks)
+                {
+                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                }
 
                 // Free the handles
                 foreach (var handle in handles)
