@@ -29,13 +29,14 @@ namespace LargeResponseBodyRepo
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
-            app.UseStaticFiles();
             app.Run(async (context) =>
             {
                 try
                 {
                     // FileInfo("C:\\Users\\jukotali\\code\\IISIntegration\\LargeResponseBodyRepo\\wwwroot\\lib\\jquery\\dist\\jquery.js")
                     var text = File.ReadAllText("C:\\Users\\jukotali\\code\\IISIntegration\\LargeResponseBodyRepo\\wwwroot\\lib\\jquery\\dist\\jquery.js");
+                    context.Response.ContentType = "text/plain";
+                    context.Response.ContentLength = text.Length;
                     await context.Response.WriteAsync(text);
                 }
                 catch (Exception ex)
