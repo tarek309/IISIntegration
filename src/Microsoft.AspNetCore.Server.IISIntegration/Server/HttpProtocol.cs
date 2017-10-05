@@ -678,7 +678,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                 //fixed (HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks = dataChunks)
                 //{
-
+                Console.WriteLine("Starting");
                 hr = NativeMethods.http_write_response_bytes(_pHttpContext, dataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
                 //}
 

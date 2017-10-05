@@ -34,6 +34,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public static readonly NativeMethods.PFN_ASYNC_COMPLETION WriteCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
         {
+            Console.WriteLine("Callback completed!");
             var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
             NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);

@@ -23,7 +23,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests
         {
         }
 
-        [Theory(Skip = "See https://github.com/aspnet/IISIntegration/issues/424")]
+        [Theory]
         [InlineData(10000)]
         [InlineData(100000)]
         [InlineData(1000000)]

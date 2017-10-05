@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Net.Http.Headers;
 
 namespace IISTestSite
 {
@@ -20,6 +21,7 @@ namespace IISTestSite
             {
                 if (context.Request.Path.Equals("/LargeResponseBody"))
                 {
+                    context.Response.Headers[HeaderNames.ContentType] = "text/plain";
                     if (int.TryParse(context.Request.Query["length"], out var length))
                     {
                         await context.Response.WriteAsync(new string('a', length));
