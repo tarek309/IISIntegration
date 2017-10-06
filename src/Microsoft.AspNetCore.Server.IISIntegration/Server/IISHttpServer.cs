@@ -17,6 +17,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     {
         private static NativeMethods.PFN_REQUEST_HANDLER _requestHandler = HandleRequest;
         private static NativeMethods.PFN_SHUTDOWN_HANDLER _shutdownHandler = HandleShutdown;
+        private static NativeMethods.PFN_MANAGED_CONTEXT_HANDLER _onAsyncCompletion = OnAsyncCompletion;
 
         private IISContextFactory _iisContextFactory;
 
@@ -38,7 +39,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             // Start the server by registering the callback
             // TODO the context may change here for shutdown.
-            NativeMethods.register_callbacks(_requestHandler, _shutdownHandler, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
+            NativeMethods.register_callbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
 
             return Task.CompletedTask;
         }
@@ -87,6 +88,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             var server = (IISHttpServer)GCHandle.FromIntPtr(pvRequestContext).Target;
             server._applicationLifetime.StopApplication();
+            return true;
+        }
+
+        private static bool OnAsyncCompletion(IntPtr pvManagedHttpContext, int hr, int bytes)
+        {
+            var context = (HttpProtocol)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
+            context.OnAsyncCompletion(hr, bytes);
             return true;
         }
 

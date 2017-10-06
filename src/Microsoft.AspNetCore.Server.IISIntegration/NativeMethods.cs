@@ -34,6 +34,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public delegate REQUEST_NOTIFICATION_STATUS PFN_REQUEST_HANDLER(IntPtr pHttpContext, IntPtr pvRequestContext);
         public delegate bool PFN_SHUTDOWN_HANDLER(IntPtr pvRequestContext);
+        public delegate bool PFN_MANAGED_CONTEXT_HANDLER(IntPtr pvManagedHttpContext, int hr, int bytes);
         public delegate REQUEST_NOTIFICATION_STATUS PFN_ASYNC_COMPLETION(IntPtr pHttpContext, IntPtr completionInfo, IntPtr pvCompletionContext);
 
         // TODO make this all internal
@@ -44,7 +45,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         public static extern void http_indicate_completion(IntPtr pHttpContext, REQUEST_NOTIFICATION_STATUS notificationStatus);
 
         [DllImport(AspNetCoreModuleDll)]
-        public static extern void register_callbacks(PFN_REQUEST_HANDLER request_callback, PFN_SHUTDOWN_HANDLER shutdown_callback, IntPtr pvRequestContext, IntPtr pvShutdownContext);
+        public static extern void register_callbacks(PFN_REQUEST_HANDLER request_callback, PFN_SHUTDOWN_HANDLER shutdown_callback, PFN_MANAGED_CONTEXT_HANDLER managed_context_handler, IntPtr pvRequestContext, IntPtr pvShutdownContext);
 
         [DllImport(AspNetCoreModuleDll)]
         internal unsafe static extern int http_write_response_bytes(IntPtr pHttpContext, HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks, int nChunks, PFN_ASYNC_COMPLETION pfnCompletionCallback, IntPtr pvCompletionContext, out bool fCompletionExpected);
@@ -66,6 +67,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         [DllImport(AspNetCoreModuleDll)]
         public unsafe static extern bool http_get_completion_info(IntPtr pCompletionInfo, out int cbBytes, out int hr);
+
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern bool http_set_managed_context(IntPtr pHttpContext, IntPtr pvManagedContext, out IntPtr storedContext);
 
         [DllImport(AspNetCoreModuleDll)]
         [return: MarshalAs(UnmanagedType.BStr)]

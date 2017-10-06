@@ -59,6 +59,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public bool HasContinuation => _callback != null && !IsCompleted;
 
+        public int WriteCount = 0;
+
         public int GetResult()
         {
             var exception = _exception;
