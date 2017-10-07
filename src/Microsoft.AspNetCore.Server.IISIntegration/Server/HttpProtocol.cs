@@ -573,6 +573,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
+        private object _responseBodyLock = new object();
         private async Task ProcessResponseBody()
         {
             while (true)
@@ -591,7 +592,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                 var buffer = result.Buffer;
                 var consumed = buffer.End;
-
                 try
                 {
                     if (result.IsCancelled)
@@ -601,7 +601,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     if (!buffer.IsEmpty)
                     {
-                        await WriteAsync(buffer);
+                        lock (_responseBodyLock)
+                        {
+                            WriteAsync(buffer);
+                        }
                     }
                     else if (result.IsCompleted)
                     {
@@ -622,7 +625,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             Output.Reader.Complete();
         }
 
-        private unsafe IISAwaitable WriteAsync(ReadableBuffer buffer)
+        private unsafe void WriteAsync(ReadableBuffer buffer)
         {
             var fCompletionExpected = false;
             var hr = 0;
@@ -692,8 +695,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             {
                 CompleteWrite(hr, cbBytes: 0);
             }
-
-            return _writeOperation;
         }
 
         private unsafe IISAwaitable ReadAsync(int length)

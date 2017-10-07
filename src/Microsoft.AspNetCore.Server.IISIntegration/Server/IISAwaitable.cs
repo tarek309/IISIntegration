@@ -36,9 +36,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
-
-            context.CompleteWrite(hr, cbBytes);
+            context.CompleteWrite(0, 0);
 
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };

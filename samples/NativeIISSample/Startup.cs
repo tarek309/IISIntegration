@@ -18,8 +18,8 @@ namespace NativeIISSample
             {
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("Hello World - " + DateTimeOffset.Now + Environment.NewLine);
-                await context.Response.WriteAsync(Environment.NewLine);
 
+                await context.Response.WriteAsync(Environment.NewLine);
                 await context.Response.WriteAsync("Address:" + Environment.NewLine);
                 await context.Response.WriteAsync("Scheme: " + context.Request.Scheme + Environment.NewLine);
                 await context.Response.WriteAsync("Host: " + context.Request.Headers["Host"] + Environment.NewLine);
@@ -57,6 +57,7 @@ namespace NativeIISSample
                     await context.Response.WriteAsync(key + ": " + value + Environment.NewLine);
                 }
                 await context.Response.WriteAsync(Environment.NewLine);
+                await context.Response.WriteAsync(new string('a', 100000));
             });
         }
 
