@@ -44,6 +44,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private GCHandle _thisHandle;
         private BufferHandle _inputHandle;
         private IISAwaitable _operation = new IISAwaitable();
+        private IISAwaitable _readOperation = new IISAwaitable();
+        private IISAwaitable _writeOperation = new IISAwaitable();
+        private IISAwaitable _flushOperation = new IISAwaitable();
+
 
         private TaskCompletionSource<object> _upgradeTcs;
 
@@ -731,7 +735,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             if (!fCompletionExpected)
             {
-                OnAsyncCompletion(hr, 0);
+                OnAsyncCompletion(hr, dwReceivedBytes);
             }
 
             return _operation;
@@ -863,6 +867,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     CompleteFlush(hr, cbBytes);
                     break;
             }
+        }
+
+        internal void CompleteWrite(int hr, int cbBytes)
+        {
+            _writeOperation.Complete(hr, cbBytes);
+        }
+
+        internal void CompleteRead(int hr, int cbBytes)
+        {
+            _readOperation.Complete(hr, cbBytes);
         }
 
         internal void CompleteFlush(int hr, int cbBytes)
