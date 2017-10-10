@@ -78,6 +78,18 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         [DllImport(AspNetCoreModuleDll)]
         public unsafe static extern bool http_shutdown();
 
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern int http_websockets_read_bytes(IntPtr pHttpContext, byte* pvBuffer, int cbBuffer, PFN_ASYNC_COMPLETION pfnCompletionCallback, IntPtr pvCompletionContext, out int dwBytesReceived, out bool fCompletionExpected);
+
+        [DllImport(AspNetCoreModuleDll)]
+        internal unsafe static extern int http_websockets_write_bytes(IntPtr pHttpContext, HttpApiTypes.HTTP_DATA_CHUNK* pDataChunks, int nChunks, PFN_ASYNC_COMPLETION pfnCompletionCallback, IntPtr pvCompletionContext, out bool fCompletionExpected);
+
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern int http_websockets_flush_bytes(IntPtr pHttpContext, PFN_ASYNC_COMPLETION pfnCompletionCallback, IntPtr pvCompletionContext, out bool fCompletionExpected);
+
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern int http_enable_websockets(IntPtr pHttpContext);
+
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetModuleHandle(string lpModuleName);
 
