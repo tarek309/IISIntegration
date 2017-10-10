@@ -75,6 +75,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             finally
             {
                 // The app is finished and there should be nobody writing to the response pipe
+                // TODO wait for all operations to finish
                 Output.Dispose();
 
                 if (_writingTask != null)

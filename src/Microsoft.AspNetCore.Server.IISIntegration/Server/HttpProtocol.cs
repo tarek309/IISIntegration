@@ -44,9 +44,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private GCHandle _thisHandle;
         private BufferHandle _inputHandle;
-        private IISAwaitable _readOperation = new IISAwaitable();
-        private IISAwaitable _writeOperation = new IISAwaitable();
-        private IISAwaitable _flushOperation = new IISAwaitable();
+        private IISAwaitable _operation = new IISAwaitable();
 
         private TaskCompletionSource<object> _upgradeTcs;
 
@@ -54,6 +52,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         protected Task _writingTask;
 
         protected int _requestAborted;
+
+        private CurrentOperationType _currentAsyncOperation;
+        private Task currentOperation = Task.CompletedTask;
 
         internal unsafe HttpProtocol(PipeFactory pipeFactory, IntPtr pHttpContext)
             : base((HttpApiTypes.HTTP_REQUEST*) NativeMethods.http_get_raw_request(pHttpContext))
@@ -166,6 +167,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private HeaderCollection HttpResponseHeaders { get; set; }
         internal HttpApiTypes.HTTP_VERB KnownMethod { get; }
 
+        private enum CurrentOperationType
+        {
+            None,
+            Read,
+            Write,
+            Flush
+        }
+
         public int StatusCode
         {
             get { return _statusCode; }
@@ -197,14 +206,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             unsafe
             {
                 var hr = 0;
-                hr = NativeMethods.http_flush_response_bytes(_pStoredContext, IISAwaitable.FlushCallback, (IntPtr)_thisHandle, out var fCompletionExpected);
-
+                hr = NativeMethods.http_flush_response_bytes(_pStoredContext, out var fCompletionExpected);
                 if (!fCompletionExpected)
                 {
                     CompleteFlush(hr, 0);
                 }
             }
-            return _flushOperation;
+            return _operation;
         }
 
         public async Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -534,7 +542,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     try
                     {
-                        int read = await ReadAsync(wb.Buffer.Length);
+                        int read = 0;
+                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        {
+                            _currentAsyncOperation = CurrentOperationType.Read;
+                            read = await ReadAsync(wb.Buffer.Length);
+                        }).Unwrap();
+
+                        await currentOperation;
 
                         if (read == 0)
                         {
@@ -601,7 +616,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     if (!buffer.IsEmpty)
                     {
-                        await WriteAsync(buffer);
+                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        {
+                            Console.WriteLine("Starting write");
+                            _currentAsyncOperation = CurrentOperationType.Write;
+                            await WriteAsync(buffer);
+                        }).Unwrap();
+                        await currentOperation;
                     }
                     else if (result.IsCompleted)
                     {
@@ -609,7 +630,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     }
                     else
                     {
-                        await DoFlushAsync();
+                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        {
+                            _currentAsyncOperation = CurrentOperationType.Flush;
+                            await DoFlushAsync();
+                        }).Unwrap();
+                        await currentOperation;
                     }
 
                     _upgradeTcs?.TrySetResult(null);
@@ -652,7 +678,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     chunk.fromMemory.pBuffer = (IntPtr)pBuffer;
                     chunk.fromMemory.BufferLength = (uint)buffer.Length;
 
-                    hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                    hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, out fCompletionExpected);
                 }
             }
             else
@@ -679,8 +705,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     currentChunk++;
                 }
 
-                hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
-
+                hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, out fCompletionExpected);
                 // Free the handles
                 foreach (var handle in handles)
                 {
@@ -690,10 +715,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             if (!fCompletionExpected)
             {
-                CompleteWrite(hr, cbBytes: 0);
+                OnAsyncCompletion(hr, 0);
             }
 
-            return _writeOperation;
+            return _operation;
         }
 
         private unsafe IISAwaitable ReadAsync(int length)
@@ -702,17 +727,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                                 _pStoredContext,
                                 (byte*)_inputHandle.PinnedPointer,
                                 length,
-                                IISAwaitable.ReadCallback,
-                                (IntPtr)_thisHandle,
                                 out var dwReceivedBytes,
                                 out var fCompletionExpected);
 
             if (!fCompletionExpected)
             {
-                CompleteRead(hr, dwReceivedBytes);
+                OnAsyncCompletion(hr, 0);
             }
 
-            return _readOperation;
+            return _operation;
         }
 
         public abstract Task ProcessRequestAsync();
@@ -812,8 +835,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void PostCompletion()
         {
-            Debug.Assert(!_readOperation.HasContinuation, "Pending read async operation!");
-            Debug.Assert(!_writeOperation.HasContinuation, "Pending write async operation!");
+            Debug.Assert(!_operation.HasContinuation, "Pending read async operation!");
 
             var hr = NativeMethods.http_post_completion(_pStoredContext, 0);
 
@@ -828,19 +850,22 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             NativeMethods.http_indicate_completion(_pStoredContext, notificationStatus);
         }
 
-        internal void CompleteWrite(int hr, int cbBytes)
+        internal void OnAsyncCompletion(int hr, int cbBytes)
         {
-            _writeOperation.Complete(hr, cbBytes);
-        }
+            switch (_currentAsyncOperation)
+            {
+                case CurrentOperationType.Read:
+                    _operation.Complete(hr, cbBytes);
+                    break;
+                case CurrentOperationType.Write:
+                    _operation.Complete(hr, cbBytes);
+                    break;
+                case CurrentOperationType.Flush:
+                    CompleteFlush(hr, cbBytes);
+                    break;
+            }
 
-        internal void CompleteRead(int hr, int cbBytes)
-        {
-            _readOperation.Complete(hr, cbBytes);
-        }
-
-        internal void OnAsyncCompletion(int hr, int bytes)
-        {
-            // TODO determine if we read or write
+            //    return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
         internal void CompleteFlush(int hr, int cbBytes)
@@ -848,7 +873,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             FreePinnedHeaders(_pinnedHeaders);
             _pinnedHeaders = null;
 
-            _flushOperation.Complete(hr, cbBytes);
+            _operation.Complete(hr, cbBytes);
         }
 
         private bool disposedValue = false; // To detect redundant calls

@@ -21,38 +21,38 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private int _cbBytes;
 
-        public static readonly NativeMethods.PFN_ASYNC_COMPLETION ReadCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
-        {
-            var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
+        //public static readonly NativeMethods.PFN_ASYNC_COMPLETION ReadCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
+        //{
+        //    var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
+        //    NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteRead(hr, cbBytes);
+        //    context.CompleteRead(hr, cbBytes);
 
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
-        };
+        //    return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+        //};
 
-        public static readonly NativeMethods.PFN_ASYNC_COMPLETION WriteCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
-        {
-            var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
+        //public static readonly NativeMethods.PFN_ASYNC_COMPLETION WriteCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
+        //{
+        //    var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
+        //    NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteWrite(hr, cbBytes);
+        //    context.CompleteWrite(hr, cbBytes);
 
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
-        };
+        //    return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+        //};
 
-        public static readonly NativeMethods.PFN_ASYNC_COMPLETION FlushCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
-        {
-            var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
+        //public static readonly NativeMethods.PFN_ASYNC_COMPLETION FlushCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
+        //{
+        //    var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
+        //    NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteFlush(hr, cbBytes);
+        //    context.CompleteFlush(hr, cbBytes);
 
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
-        };
+        //    return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+        //};
 
         public IISAwaitable GetAwaiter() => this;
         public bool IsCompleted => _callback == _callbackCompleted;
