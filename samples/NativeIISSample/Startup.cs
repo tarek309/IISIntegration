@@ -18,7 +18,6 @@ namespace NativeIISSample
             {
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("Hello World - " + DateTimeOffset.Now + Environment.NewLine);
-                await context.Response.WriteAsync(new string('a', 100000));
                 await context.Response.WriteAsync(Environment.NewLine);
 
                 await context.Response.WriteAsync("Address:" + Environment.NewLine);
