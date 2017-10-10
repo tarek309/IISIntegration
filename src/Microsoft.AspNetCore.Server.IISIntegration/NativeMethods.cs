@@ -69,7 +69,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         public unsafe static extern bool http_get_completion_info(IntPtr pCompletionInfo, out int cbBytes, out int hr);
 
         [DllImport(AspNetCoreModuleDll)]
-        public unsafe static extern bool http_set_managed_context(IntPtr pHttpContext, IntPtr pvManagedContext, out IntPtr storedContext);
+        public unsafe static extern bool http_set_managed_context(IntPtr pHttpContext, IntPtr pvManagedContext);
 
         [DllImport(AspNetCoreModuleDll)]
         [return: MarshalAs(UnmanagedType.BStr)]

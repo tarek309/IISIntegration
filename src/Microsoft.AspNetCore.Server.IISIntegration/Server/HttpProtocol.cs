@@ -27,7 +27,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private static bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
 
         protected readonly IntPtr _pHttpContext;
-        protected readonly IntPtr _pStoredContext;
 
         private bool _wasUpgraded;
         private int _statusCode;
@@ -64,7 +63,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _pipeFactory = pipeFactory;
             _pHttpContext = pHttpContext;
 
-            NativeMethods.http_set_managed_context(pHttpContext, (IntPtr) _thisHandle, out _pStoredContext);
+            NativeMethods.http_set_managed_context(pHttpContext, (IntPtr) _thisHandle);
 
             unsafe
             {
@@ -206,7 +205,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             unsafe
             {
                 var hr = 0;
-                hr = NativeMethods.http_flush_response_bytes(_pStoredContext, out var fCompletionExpected);
+                hr = NativeMethods.http_flush_response_bytes(_pHttpContext, out var fCompletionExpected);
                 if (!fCompletionExpected)
                 {
                     CompleteFlush(hr, 0);
@@ -354,10 +353,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             fixed (byte* pReasonPhrase = reasonPhraseBytes)
             {
                 // This copies data into the underlying buffer
-                NativeMethods.http_set_response_status_code(_pStoredContext, (ushort)StatusCode, pReasonPhrase);
+                NativeMethods.http_set_response_status_code(_pHttpContext, (ushort)StatusCode, pReasonPhrase);
             }
 
-            HttpApiTypes.HTTP_RESPONSE_V2* pHttpResponse = NativeMethods.http_get_raw_response(_pStoredContext);
+            HttpApiTypes.HTTP_RESPONSE_V2* pHttpResponse = NativeMethods.http_get_raw_response(_pHttpContext);
 
             // We should be sending the headers here as there are many responses that don't have status codes.
             _pinnedHeaders = SerializeHeaders(pHttpResponse);
@@ -678,7 +677,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     chunk.fromMemory.pBuffer = (IntPtr)pBuffer;
                     chunk.fromMemory.BufferLength = (uint)buffer.Length;
 
-                    hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, out fCompletionExpected);
+                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
                 }
             }
             else
@@ -705,7 +704,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     currentChunk++;
                 }
 
-                hr = NativeMethods.http_write_response_bytes(_pStoredContext, pDataChunks, nChunks, out fCompletionExpected);
+                hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
                 // Free the handles
                 foreach (var handle in handles)
                 {
@@ -724,7 +723,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private unsafe IISAwaitable ReadAsync(int length)
         {
             var hr = NativeMethods.http_read_request_bytes(
-                                _pStoredContext,
+                                _pHttpContext,
                                 (byte*)_inputHandle.PinnedPointer,
                                 length,
                                 out var dwReceivedBytes,
@@ -835,9 +834,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void PostCompletion()
         {
-            Debug.Assert(!_operation.HasContinuation, "Pending read async operation!");
+            Debug.Assert(!_operation.HasContinuation, "Pending async operation!");
 
-            var hr = NativeMethods.http_post_completion(_pStoredContext, 0);
+            var hr = NativeMethods.http_post_completion(_pHttpContext, 0);
 
             if (hr != NativeMethods.S_OK)
             {
@@ -847,7 +846,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void IndicateCompletion(NativeMethods.REQUEST_NOTIFICATION_STATUS notificationStatus)
         {
-            NativeMethods.http_indicate_completion(_pStoredContext, notificationStatus);
+            NativeMethods.http_indicate_completion(_pHttpContext, notificationStatus);
         }
 
         internal void OnAsyncCompletion(int hr, int cbBytes)
@@ -864,8 +863,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     CompleteFlush(hr, cbBytes);
                     break;
             }
-
-            //    return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
         internal void CompleteFlush(int hr, int cbBytes)

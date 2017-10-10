@@ -102,7 +102,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private static void CompleteRequest(HttpProtocol context)
         {
             // Post completion after completing the request to resume the state machine
-            context.PostCompletion();
+            //context.PostCompletion();
+            context.IndicateCompletion(NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_CONTINUE);
 
             // Dispose the context
             context.Dispose();
