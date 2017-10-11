@@ -79,6 +79,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             {
                 if (_completed)
                 {
+                    // TODO errors being thrown here.
                     throw new ObjectDisposedException("Response is already completed");
                 }
 

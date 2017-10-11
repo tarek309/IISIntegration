@@ -86,7 +86,6 @@ namespace NativeIISSample
         {
             var host = new WebHostBuilder()
                 .UseIISIntegration()
-                .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseStartup<Startup>()
                 .Build();
 

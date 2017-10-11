@@ -95,7 +95,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             var context = (HttpProtocol)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
             context.OnAsyncCompletion(hr, bytes);
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING; // TODO
+            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
         private static void CompleteRequest(HttpProtocol context)
