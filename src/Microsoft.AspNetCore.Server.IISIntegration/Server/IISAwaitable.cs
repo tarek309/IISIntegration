@@ -43,17 +43,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
 
-        public static readonly NativeMethods.PFN_ASYNC_COMPLETION FlushCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
-        {
-            var context = (HttpProtocol)GCHandle.FromIntPtr(pvCompletionContext).Target;
-
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
-
-            context.CompleteFlushWebSockets(hr, cbBytes);
-
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
-        };
-
         public IISAwaitable GetAwaiter() => this;
         public bool IsCompleted => _callback == _callbackCompleted;
 

@@ -47,7 +47,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private IISAwaitable _readWebSocketsOperation;
         private IISAwaitable _writeWebSocketsOperation;
-        private IISAwaitable _flushWebSocketsOperation;
 
         private TaskCompletionSource<object> _upgradeTcs;
 
@@ -933,14 +932,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         internal void CompleteReadWebSockets(int hr, int cbBytes)
         {
             _readWebSocketsOperation.Complete(hr, cbBytes);
-        }
-
-        internal void CompleteFlushWebSockets(int hr, int cbBytes)
-        {
-            FreePinnedHeaders(_pinnedHeaders);
-            _pinnedHeaders = null;
-
-            _flushWebSocketsOperation.Complete(hr, cbBytes);
         }
 
         private bool disposedValue = false; // To detect redundant calls
