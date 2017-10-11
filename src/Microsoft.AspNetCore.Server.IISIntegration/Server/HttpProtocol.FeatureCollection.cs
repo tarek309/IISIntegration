@@ -266,11 +266,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 throw new InvalidOperationException("CoreStrings.UpgradeCannotBeCalledMultipleTimes");
             }
 
-            _wasUpgraded = true;
-
             StatusCode = StatusCodes.Status101SwitchingProtocols;
             ReasonPhrase = ReasonPhrases.GetReasonPhrase(StatusCodes.Status101SwitchingProtocols);
+            NativeMethods.http_enable_websockets(_pHttpContext);
             await UpgradeAsync();
+            _wasUpgraded = true;
 
             return new DuplexStream(RequestBody, ResponseBody);
         }

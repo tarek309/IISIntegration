@@ -44,10 +44,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private GCHandle _thisHandle;
         private BufferHandle _inputHandle;
         private IISAwaitable _operation = new IISAwaitable();
-        private IISAwaitable _readOperation = new IISAwaitable();
-        private IISAwaitable _writeOperation = new IISAwaitable();
-        private IISAwaitable _flushOperation = new IISAwaitable();
 
+        private IISAwaitable _readWebSocketsOperation = new IISAwaitable();
+        private IISAwaitable _writeWebSocketsOperation = new IISAwaitable();
+        private IISAwaitable _flushWebSocketsOperation = new IISAwaitable();
 
         private TaskCompletionSource<object> _upgradeTcs;
 
@@ -60,15 +60,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private Task currentOperation = Task.CompletedTask;
 
         internal unsafe HttpProtocol(PipeFactory pipeFactory, IntPtr pHttpContext)
-            : base((HttpApiTypes.HTTP_REQUEST*) NativeMethods.http_get_raw_request(pHttpContext))
+            : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pHttpContext))
         {
             _thisHandle = GCHandle.Alloc(this);
 
             _pipeFactory = pipeFactory;
             _pHttpContext = pHttpContext;
 
-            NativeMethods.http_set_managed_context(pHttpContext, (IntPtr) _thisHandle);
-
+            NativeMethods.http_set_managed_context(pHttpContext, (IntPtr)_thisHandle);
             unsafe
             {
                 Method = GetVerb();
@@ -209,13 +208,25 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             unsafe
             {
                 var hr = 0;
-                hr = NativeMethods.http_flush_response_bytes(_pHttpContext, out var fCompletionExpected);
-                if (!fCompletionExpected)
+                if (_wasUpgraded)
                 {
-                    CompleteFlush(hr, 0);
+                    hr = NativeMethods.http_websockets_flush_bytes(_pHttpContext, IISAwaitable.FlushCallback, (IntPtr)_thisHandle, out var fCompletionExpected);
+                    if (!fCompletionExpected)
+                    {
+                        CompleteFlushWebSockets(hr, 0);
+                    }
+                    return _flushWebSocketsOperation;
+                }
+                else
+                {
+                    hr = NativeMethods.http_flush_response_bytes(_pHttpContext, out var fCompletionExpected);
+                    if (!fCompletionExpected)
+                    {
+                        OnAsyncCompletion(hr, 0);
+                    }
+                    return _operation;
                 }
             }
-            return _operation;
         }
 
         public async Task FlushAsync(CancellationToken cancellationToken = default(CancellationToken))
@@ -546,13 +557,20 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     try
                     {
                         int read = 0;
-                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        if (_wasUpgraded)
                         {
-                            _currentAsyncOperation = CurrentOperationType.Read;
-                            read = await ReadAsync(wb.Buffer.Length);
-                        }).Unwrap();
+                            await ReadAsync(wb.Buffer.Length);
+                        }
+                        else
+                        {
+                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            {
+                                _currentAsyncOperation = CurrentOperationType.Read;
+                                read = await ReadAsync(wb.Buffer.Length);
+                            }).Unwrap();
+                            await currentOperation;
+                        }
 
-                        await currentOperation;
 
                         if (read == 0)
                         {
@@ -619,13 +637,19 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     if (!buffer.IsEmpty)
                     {
-                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        if (_wasUpgraded)
                         {
-                            Console.WriteLine("Starting write");
-                            _currentAsyncOperation = CurrentOperationType.Write;
                             await WriteAsync(buffer);
-                        }).Unwrap();
-                        await currentOperation;
+                        }
+                        else
+                        {
+                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            {
+                                _currentAsyncOperation = CurrentOperationType.Write;
+                                await WriteAsync(buffer);
+                            }).Unwrap();
+                            await currentOperation;
+                        }
                     }
                     else if (result.IsCompleted)
                     {
@@ -633,12 +657,19 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     }
                     else
                     {
-                        currentOperation = currentOperation.ContinueWith(async (t) =>
+                        if (_wasUpgraded)
                         {
-                            _currentAsyncOperation = CurrentOperationType.Flush;
                             await DoFlushAsync();
-                        }).Unwrap();
-                        await currentOperation;
+                        }
+                        else
+                        {
+                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            {
+                                _currentAsyncOperation = CurrentOperationType.Flush;
+                                await DoFlushAsync();
+                            }).Unwrap();
+                            await currentOperation;
+                        }
                     }
 
                     _upgradeTcs?.TrySetResult(null);
@@ -680,8 +711,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
                     chunk.fromMemory.pBuffer = (IntPtr)pBuffer;
                     chunk.fromMemory.BufferLength = (uint)buffer.Length;
-
-                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                    if (_wasUpgraded)
+                    {
+                        hr = NativeMethods.http_websockets_write_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                    }
+                    else
+                    {
+                        hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                    }
                 }
             }
             else
@@ -707,8 +744,14 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     currentChunk++;
                 }
-
-                hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                if (_wasUpgraded)
+                {
+                    hr = NativeMethods.http_websockets_write_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                }
+                else
+                {
+                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                }
                 // Free the handles
                 foreach (var handle in handles)
                 {
@@ -716,29 +759,60 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
             }
 
-            if (!fCompletionExpected)
+            if (_wasUpgraded)
             {
-                OnAsyncCompletion(hr, 0);
+                if (!fCompletionExpected)
+                {
+                    CompleteWriteWebSockets(hr, 0);
+                }
+                return _writeWebSocketsOperation;
             }
-
-            return _operation;
+            else
+            {
+                if (!fCompletionExpected)
+                {
+                    OnAsyncCompletion(hr, 0);
+                }
+                return _operation;
+            }
         }
 
         private unsafe IISAwaitable ReadAsync(int length)
         {
-            var hr = NativeMethods.http_read_request_bytes(
+            var hr = 0;
+            int dwReceivedBytes;
+            bool fCompletionExpected;
+            if (_wasUpgraded)
+            {
+
+                hr = NativeMethods.http_websockets_read_bytes(
                                 _pHttpContext,
                                 (byte*)_inputHandle.PinnedPointer,
                                 length,
-                                out var dwReceivedBytes,
-                                out var fCompletionExpected);
-
-            if (!fCompletionExpected)
-            {
-                OnAsyncCompletion(hr, dwReceivedBytes);
+                                IISAwaitable.ReadCallback,
+                                (IntPtr)_thisHandle,
+                                out dwReceivedBytes,
+                                out fCompletionExpected);
+                if (!fCompletionExpected)
+                {
+                    CompleteReadWebSockets(hr, dwReceivedBytes);
+                }
+                return _readWebSocketsOperation;
             }
-
-            return _operation;
+            else
+            {
+                hr = NativeMethods.http_read_request_bytes(
+                                _pHttpContext,
+                                (byte*)_inputHandle.PinnedPointer,
+                                length,
+                                out dwReceivedBytes,
+                                out fCompletionExpected);
+                if (!fCompletionExpected)
+                {
+                    OnAsyncCompletion(hr, dwReceivedBytes);
+                }
+                return _operation;
+            }
         }
 
         public abstract Task ProcessRequestAsync();
@@ -864,27 +938,29 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     _operation.Complete(hr, cbBytes);
                     break;
                 case CurrentOperationType.Flush:
-                    CompleteFlush(hr, cbBytes);
+                    FreePinnedHeaders(_pinnedHeaders);
+                    _pinnedHeaders = null;
+                    _operation.Complete(hr, cbBytes);
                     break;
             }
         }
 
-        internal void CompleteWrite(int hr, int cbBytes)
+        internal void CompleteWriteWebSockets(int hr, int cbBytes)
         {
-            _writeOperation.Complete(hr, cbBytes);
+            _writeWebSocketsOperation.Complete(hr, cbBytes);
         }
 
-        internal void CompleteRead(int hr, int cbBytes)
+        internal void CompleteReadWebSockets(int hr, int cbBytes)
         {
-            _readOperation.Complete(hr, cbBytes);
+            _readWebSocketsOperation.Complete(hr, cbBytes);
         }
 
-        internal void CompleteFlush(int hr, int cbBytes)
+        internal void CompleteFlushWebSockets(int hr, int cbBytes)
         {
             FreePinnedHeaders(_pinnedHeaders);
             _pinnedHeaders = null;
 
-            _operation.Complete(hr, cbBytes);
+            _flushWebSocketsOperation.Complete(hr, cbBytes);
         }
 
         private bool disposedValue = false; // To detect redundant calls

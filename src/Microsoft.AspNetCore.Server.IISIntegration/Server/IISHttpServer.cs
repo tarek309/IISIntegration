@@ -93,7 +93,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private static NativeMethods.REQUEST_NOTIFICATION_STATUS OnAsyncCompletion(IntPtr pvManagedHttpContext, int hr, int bytes)
         {
-            Console.WriteLine("Write completed");
             var context = (HttpProtocol)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
             context.OnAsyncCompletion(hr, bytes);
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING; // TODO

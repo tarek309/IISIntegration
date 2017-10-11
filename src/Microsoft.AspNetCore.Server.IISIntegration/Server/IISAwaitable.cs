@@ -27,7 +27,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteRead(hr, cbBytes);
+            context.CompleteReadWebSockets(hr, cbBytes);
 
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
@@ -38,7 +38,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteWrite(hr, cbBytes);
+            context.CompleteWriteWebSockets(hr, cbBytes);
 
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
@@ -49,7 +49,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
 
-            context.CompleteFlush(hr, cbBytes);
+            context.CompleteFlushWebSockets(hr, cbBytes);
 
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
