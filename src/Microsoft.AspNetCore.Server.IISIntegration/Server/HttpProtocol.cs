@@ -33,6 +33,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private string _reasonPhrase;
         private readonly object _onStartingSync = new object();
         private readonly object _onCompletedSync = new object();
+
         protected Stack<KeyValuePair<Func<object, Task>, object>> _onStarting;
         protected Stack<KeyValuePair<Func<object, Task>, object>> _onCompleted;
 
@@ -55,8 +56,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         protected int _requestAborted;
 
-        private CurrentOperationType _currentAsyncOperation;
-        private Task currentOperation = Task.CompletedTask;
+        private CurrentOperationType _currentOperationType;
+        private Task _currentOperation = Task.CompletedTask;
 
         internal unsafe HttpProtocol(PipeFactory pipeFactory, IntPtr pHttpContext)
             : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pHttpContext))
@@ -540,18 +541,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         int read = 0;
                         if (_wasUpgraded)
                         {
-                            read = await ReadAsync(wb.Buffer.Length);
+                            read = await ReadWebSocketsAsync(wb.Buffer.Length);
                         }
                         else
                         {
-                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            _currentOperation = _currentOperation.ContinueWith(async (t) =>
                             {
-                                _currentAsyncOperation = CurrentOperationType.Read;
+                                _currentOperationType = CurrentOperationType.Read;
                                 read = await ReadAsync(wb.Buffer.Length);
                             }).Unwrap();
-                            await currentOperation;
                         }
-
 
                         if (read == 0)
                         {
@@ -624,12 +623,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         }
                         else
                         {
-                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            _currentOperation = _currentOperation.ContinueWith(async (t) =>
                             {
-                                _currentAsyncOperation = CurrentOperationType.Write;
+                                _currentOperationType = CurrentOperationType.Write;
                                 await WriteAsync(buffer);
                             }).Unwrap();
-                            await currentOperation;
+                            await _currentOperation;
                         }
                     }
                     else if (result.IsCompleted)
@@ -644,12 +643,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         }
                         else
                         {
-                            currentOperation = currentOperation.ContinueWith(async (t) =>
+                            _currentOperation = _currentOperation.ContinueWith(async (t) =>
                             {
-                                _currentAsyncOperation = CurrentOperationType.Flush;
+                                _currentOperationType = CurrentOperationType.Flush;
                                 await DoFlushAsync();
                             }).Unwrap();
-                            await currentOperation;
+                            await _currentOperation;
                         }
                     }
 
@@ -763,37 +762,38 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             var hr = 0;
             int dwReceivedBytes;
             bool fCompletionExpected;
-            if (_wasUpgraded)
+            hr = NativeMethods.http_read_request_bytes(
+                            _pHttpContext,
+                            (byte*)_inputHandle.PinnedPointer,
+                            length,
+                            out dwReceivedBytes,
+                            out fCompletionExpected);
+            if (!fCompletionExpected)
             {
+                OnAsyncCompletion(hr, dwReceivedBytes);
+            }
+            return _operation;
+        }
 
-                hr = NativeMethods.http_websockets_read_bytes(
-                                _pHttpContext,
-                                (byte*)_inputHandle.PinnedPointer,
-                                length,
-                                IISAwaitable.ReadCallback,
-                                (IntPtr)_thisHandle,
-                                out dwReceivedBytes,
-                                out fCompletionExpected);
-                if (!fCompletionExpected)
-                {
-                    CompleteReadWebSockets(hr, dwReceivedBytes);
-                }
-                return _readWebSocketsOperation;
-            }
-            else
+
+        private unsafe IISAwaitable ReadWebSocketsAsync(int length)
+        {
+            var hr = 0;
+            int dwReceivedBytes;
+            bool fCompletionExpected;
+            hr = NativeMethods.http_websockets_read_bytes(
+                                      _pHttpContext,
+                                      (byte*)_inputHandle.PinnedPointer,
+                                      length,
+                                      IISAwaitable.ReadCallback,
+                                      (IntPtr)_thisHandle,
+                                      out dwReceivedBytes,
+                                      out fCompletionExpected);
+            if (!fCompletionExpected)
             {
-                hr = NativeMethods.http_read_request_bytes(
-                                _pHttpContext,
-                                (byte*)_inputHandle.PinnedPointer,
-                                length,
-                                out dwReceivedBytes,
-                                out fCompletionExpected);
-                if (!fCompletionExpected)
-                {
-                    OnAsyncCompletion(hr, dwReceivedBytes);
-                }
-                return _operation;
+                CompleteReadWebSockets(hr, dwReceivedBytes);
             }
+            return _readWebSocketsOperation;
         }
 
         public abstract Task ProcessRequestAsync();
@@ -910,7 +910,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         internal void OnAsyncCompletion(int hr, int cbBytes)
         {
-            switch (_currentAsyncOperation)
+            switch (_currentOperationType)
             {
                 case CurrentOperationType.Read:
                 case CurrentOperationType.Write:

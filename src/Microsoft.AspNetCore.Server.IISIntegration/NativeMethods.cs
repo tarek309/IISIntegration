@@ -87,6 +87,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         [DllImport(AspNetCoreModuleDll)]
         public unsafe static extern int http_enable_websockets(IntPtr pHttpContext);
 
+        [DllImport(AspNetCoreModuleDll)]
+        public unsafe static extern int http_cancel_io(IntPtr pHttpContext);
+
         [DllImport("kernel32.dll")]
         public static extern IntPtr GetModuleHandle(string lpModuleName);
 
