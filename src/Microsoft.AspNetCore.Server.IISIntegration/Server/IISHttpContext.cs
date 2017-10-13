@@ -227,6 +227,35 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
+        public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            StartReadingRequestBody();
+
+            while (true)
+            {
+                var result = await Input.Reader.ReadAsync();
+                var readableBuffer = result.Buffer;
+                try
+                {
+                    if (!readableBuffer.IsEmpty)
+                    {
+                        var actual = Math.Min(readableBuffer.Length, count);
+                        readableBuffer = readableBuffer.Slice(0, actual);
+                        readableBuffer.CopyTo(buffer);
+                        return (int)actual;
+                    }
+                    else if (result.IsCompleted)
+                    {
+                        return 0;
+                    }
+                }
+                finally
+                {
+                    Input.Reader.Advance(readableBuffer.End, readableBuffer.End);
+                }
+            }
+        }
+
         public Task WriteAsync(ArraySegment<byte> data, CancellationToken cancellationToken = default(CancellationToken))
         {
             if (!HasResponseStarted)
@@ -638,19 +667,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     }
                     else
                     {
-                        if (_wasUpgraded)
+                        _currentOperation = _currentOperation.ContinueWith(async (t) =>
                         {
+                            _currentOperationType = CurrentOperationType.Flush;
                             await DoFlushAsync();
-                        }
-                        else
-                        {
-                            _currentOperation = _currentOperation.ContinueWith(async (t) =>
-                            {
-                                _currentOperationType = CurrentOperationType.Flush;
-                                await DoFlushAsync();
-                            }).Unwrap();
-                            await _currentOperation;
-                        }
+                        }).Unwrap();
+                        await _currentOperation;
                     }
 
                     _upgradeTcs?.TrySetResult(null);
