@@ -550,6 +550,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                                 _currentOperationType = CurrentOperationType.Read;
                                 read = await ReadAsync(wb.Buffer.Length);
                             }).Unwrap();
+                            await _currentOperation;
                         }
 
                         if (read == 0)
@@ -774,7 +775,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
             return _operation;
         }
-
 
         private unsafe IISAwaitable ReadWebSocketsAsync(int length)
         {
