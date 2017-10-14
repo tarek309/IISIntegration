@@ -25,7 +25,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private TaskCompletionSource<object> _flushTcs;
         private readonly object _flushLock = new object();
         private Action _flushCompleted;
-
+            
         public OutputProducer(IPipe pipe)
         {
             _pipe = pipe;

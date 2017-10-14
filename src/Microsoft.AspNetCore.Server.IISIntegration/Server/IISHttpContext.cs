@@ -576,11 +576,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         {
                             _currentOperation = _currentOperation.ContinueWith(async (t) =>
                             {
+                                Console.WriteLine("Read starting");
                                 _currentOperationType = CurrentOperationType.Read;
                                 read = await ReadAsync(wb.Buffer.Length);
                             }).Unwrap();
                             await _currentOperation;
                         }
+                        Console.WriteLine($"Read completed: {read} bytes");
 
                         if (read == 0)
                         {
@@ -655,11 +657,13 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         {
                             _currentOperation = _currentOperation.ContinueWith(async (t) =>
                             {
+                                Console.WriteLine("Write starting");
                                 _currentOperationType = CurrentOperationType.Write;
                                 await WriteAsync(buffer);
                             }).Unwrap();
                             await _currentOperation;
                         }
+                        Console.WriteLine($"Write completed");
                     }
                     else if (result.IsCompleted)
                     {
@@ -702,7 +706,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     nChunks++;
                 }
             }
-
             if (buffer.IsSingleSpan)
             {
                 var pDataChunks = stackalloc HttpApiTypes.HTTP_DATA_CHUNK[1];
@@ -774,7 +777,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             {
                 if (!fCompletionExpected)
                 {
+                    Console.WriteLine("Write done sync");
                     OnAsyncCompletion(hr, 0);
+                }
+                else
+                {
+                    Console.WriteLine("Awaiting write");
                 }
                 return _operation;
             }
@@ -793,7 +801,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                             out fCompletionExpected);
             if (!fCompletionExpected)
             {
+                Console.WriteLine("Read done sync");
                 OnAsyncCompletion(hr, dwReceivedBytes);
+            }
+            else
+            {
+                Console.WriteLine("Awaiting read");
             }
             return _operation;
         }

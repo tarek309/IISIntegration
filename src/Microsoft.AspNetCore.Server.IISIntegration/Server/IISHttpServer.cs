@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Server.IISIntegration
 {
@@ -94,6 +93,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private static NativeMethods.REQUEST_NOTIFICATION_STATUS OnAsyncCompletion(IntPtr pvManagedHttpContext, int hr, int bytes)
         {
             var context = (HttpProtocol)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
+            Console.WriteLine("Async operation completed");
             context.OnAsyncCompletion(hr, bytes);
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
