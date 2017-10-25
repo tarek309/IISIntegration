@@ -13,43 +13,51 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
+using static Microsoft.AspNetCore.Server.IISIntegration.IISDelegates;
 
 namespace Microsoft.AspNetCore.Server.IISIntegration
 {
     internal class IISHttpServer : IServer
     {
-        private static NativeMethods.PFN_REQUEST_HANDLER _requestHandler = HandleRequest;
-        private static NativeMethods.PFN_SHUTDOWN_HANDLER _shutdownHandler = HandleShutdown;
-        private static NativeMethods.PFN_ASYNC_COMPLETION _onAsyncCompletion = OnAsyncCompletion;
+        private static PFN_REQUEST_HANDLER _requestHandler = HandleRequest;
+        private static PFN_SHUTDOWN_HANDLER _shutdownHandler = HandleShutdown;
+        private static PFN_ASYNC_COMPLETION _onAsyncCompletion = OnAsyncCompletion;
 
         private IISContextFactory _iisContextFactory;
         private readonly BufferPool _bufferPool = new MemoryPool();
         private GCHandle _httpServerHandle;
         private readonly IApplicationLifetime _applicationLifetime;
         private readonly IAuthenticationSchemeProvider _authentication;
+        private IISFunctions _iisFunctions;
         private readonly IISOptions _options;
 
         public IFeatureCollection Features { get; } = new FeatureCollection();
-        public IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options)
+        public IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options, IISFunctions iisFunctions)
         {
             _applicationLifetime = applicationLifetime;
             _authentication = authentication;
             _options = options.Value;
-
+            _iisFunctions = iisFunctions;
             if (_options.ForwardWindowsAuthentication)
             {
                 authentication.AddScheme(new AuthenticationScheme(IISDefaults.AuthenticationScheme, _options.AuthenticationDisplayName, typeof(IISServerAuthenticationHandler)));
             }
+            _iisFunctions = new DefaultIISFunctions();
+        }
+
+        internal IISHttpServer(IApplicationLifetime applicationLifetime, IISFunctions iisFunctions)
+        {
+            _applicationLifetime = applicationLifetime;
+            _iisFunctions = iisFunctions;
         }
 
         public Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken)
         {
             _httpServerHandle = GCHandle.Alloc(this);
 
-            _iisContextFactory = new IISContextFactory<TContext>(_bufferPool, application, _options);
-
+            _iisContextFactory = new IISContextFactory<TContext>(_pipeFactory, application, _options, _iisFunctions);
             // Start the server by registering the callback
-            NativeMethods.register_callbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
+            _iisFunctions.RegisterCallbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
 
             return Task.CompletedTask;
         }
@@ -73,7 +81,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _bufferPool.Dispose();
         }
 
-        private static NativeMethods.REQUEST_NOTIFICATION_STATUS HandleRequest(IntPtr pHttpContext, IntPtr pvRequestContext)
+        private static REQUEST_NOTIFICATION_STATUS HandleRequest(IntPtr pHttpContext, IntPtr pvRequestContext)
         {
             // Unwrap the server so we can create an http context and process the request
             var server = (IISHttpServer)GCHandle.FromIntPtr(pvRequestContext).Target;
@@ -91,7 +99,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             task.ContinueWith((t, state) => CompleteRequest((IISHttpContext)state, t), context);
 
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+            return REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
         private static bool HandleShutdown(IntPtr pvRequestContext)
@@ -101,11 +109,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             return true;
         }
 
-        private static NativeMethods.REQUEST_NOTIFICATION_STATUS OnAsyncCompletion(IntPtr pvManagedHttpContext, int hr, int bytes)
+        private static REQUEST_NOTIFICATION_STATUS OnAsyncCompletion(IntPtr pvManagedHttpContext, int hr, int bytes)
         {
             var context = (IISHttpContext)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
             context.OnAsyncCompletion(hr, bytes);
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+            return REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
         private static void CompleteRequest(IISHttpContext context, Task<bool> completedTask)
@@ -128,17 +136,20 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             private readonly IHttpApplication<T> _application;
             private readonly BufferPool _bufferPool;
             private readonly IISOptions _options;
+            private readonly IISFunctions _iisFunctions;
 
-            public IISContextFactory(BufferPool bufferPool, IHttpApplication<T> application, IISOptions options)
+            public IISContextFactory(BufferPool bufferPool, IHttpApplication<T> application, IISOptions options, IISFunctions iisFunctions)
             {
                 _application = application;
                 _bufferPool = bufferPool;
                 _options = options;
+                _iisFunctions = iisFunctions;
+
             }
 
             public IISHttpContext CreateHttpContext(IntPtr pHttpContext)
             {
-                return new IISHttpContextOfT<T>(_bufferPool, _application, pHttpContext, _options);
+                return new IISHttpContextOfT<T>(_bufferPool, _application, pHttpContext, _options, _iisFunctions);
             }
         }
     }

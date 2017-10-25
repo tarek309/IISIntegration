@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using static Microsoft.AspNetCore.Server.IISIntegration.IISDelegates;
 
 namespace Microsoft.AspNetCore.Server.IISIntegration
 {
@@ -21,26 +22,23 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private int _cbBytes;
 
-        public static readonly NativeMethods.PFN_WEBSOCKET_ASYNC_COMPLETION ReadCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
+
+        public static readonly PFN_WEBSOCKET_ASYNC_COMPLETION ReadCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
         {
             var context = (IISHttpContext)GCHandle.FromIntPtr(pvCompletionContext).Target;
+        
+            context.CompleteReadWebSockets(pCompletionInfo);
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
-
-            context.CompleteReadWebSockets(hr, cbBytes);
-
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+            return REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
 
-        public static readonly NativeMethods.PFN_WEBSOCKET_ASYNC_COMPLETION WriteCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
+        public static readonly PFN_WEBSOCKET_ASYNC_COMPLETION WriteCallback = (IntPtr pHttpContext, IntPtr pCompletionInfo, IntPtr pvCompletionContext) =>
         {
             var context = (IISHttpContext)GCHandle.FromIntPtr(pvCompletionContext).Target;
 
-            NativeMethods.http_get_completion_info(pCompletionInfo, out int cbBytes, out int hr);
+            context.CompleteWriteWebSockets(pCompletionInfo);
 
-            context.CompleteWriteWebSockets(hr, cbBytes);
-
-            return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
+            return REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         };
 
         public IISAwaitable GetAwaiter() => this;
@@ -86,7 +84,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void Complete(int hr, int cbBytes)
         {
-            _exception = Marshal.GetExceptionForHR(hr);
+            _exception = DefaultIISFunctions.GetExceptionIfErrored(hr);
             _cbBytes = cbBytes;
 
             var continuation = Interlocked.Exchange(ref _callback, _callbackCompleted);

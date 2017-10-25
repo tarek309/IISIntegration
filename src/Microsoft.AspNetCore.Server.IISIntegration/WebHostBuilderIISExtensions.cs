@@ -40,20 +40,14 @@ namespace Microsoft.AspNetCore.Hosting
             }
 
             // Check if in process
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && NativeMethods.is_ancm_loaded())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && DefaultIISFunctions.is_ancm_loaded())
             {
                 hostBuilder.UseSetting(nameof(UseIISIntegration), "true");
                 hostBuilder.CaptureStartupErrors(true);
 
                 // TODO consider adding a configuration load where all variables needed are loaded from ANCM in one call.
                 var iisConfigData = new IISConfigurationData();
-                var hResult = NativeMethods.http_get_application_properties(ref iisConfigData);
-
-                var exception = Marshal.GetExceptionForHR(hResult);
-                if (exception != null)
-                {
-                    throw exception;
-                }
+                DefaultIISFunctions.IISGetApplicationPaths(ref iisConfigData);
 
                 hostBuilder.UseContentRoot(iisConfigData.pwzFullApplicationPath);
                 return hostBuilder.ConfigureServices(services =>

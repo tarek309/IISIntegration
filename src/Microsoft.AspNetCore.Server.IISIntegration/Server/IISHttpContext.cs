@@ -46,7 +46,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private GCHandle _thisHandle;
         private MemoryHandle _inputHandle;
         private IISAwaitable _operation = new IISAwaitable();
-
+        protected IISFunctions _iisFunctions;
         private IISAwaitable _readWebSocketsOperation;
         private IISAwaitable _writeWebSocketsOperation;
 
@@ -64,15 +64,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private const string NegotiateString = "Negotiate";
         private const string BasicString = "Basic";
 
-        internal unsafe IISHttpContext(BufferPool bufferPool, IntPtr pHttpContext, IISOptions options)
-            : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pHttpContext))
+        internal unsafe IISHttpContext(PipeFactory pipeFactory, IntPtr pHttpContext, IISFunctions iisFunctions)
+            : base((HttpApiTypes.HTTP_REQUEST*)iisFunctions.GetRawRequest(pHttpContext))
         {
             _thisHandle = GCHandle.Alloc(this);
-
-            _bufferPool = bufferPool;
+            _iisFunctions = iisFunctions;
+            _pipeFactory = pipeFactory;
             _pHttpContext = pHttpContext;
 
-            NativeMethods.http_set_managed_context(_pHttpContext, (IntPtr)_thisHandle);
+            _iisFunctions.SetManagedContext(_pHttpContext, (IntPtr)_thisHandle);
             unsafe
             {
                 Method = GetVerb();
@@ -82,20 +82,22 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 HttpVersion = GetVersion();
                 Scheme = SslStatus != SslStatus.Insecure ? Constants.HttpsScheme : Constants.HttpScheme;
                 KnownMethod = VerbId;
-
-                var originalPath = RequestUriBuilder.DecodeAndUnescapePath(GetRawUrlInBytes());
-
-                if (KnownMethod == HttpApiTypes.HTTP_VERB.HttpVerbOPTIONS && string.Equals(RawTarget, "*", StringComparison.Ordinal))
+                if (RawTarget != null)
                 {
-                    PathBase = string.Empty;
-                    Path = string.Empty;
-                }
-                else
-                {
-                    // Path and pathbase are unescaped by RequestUriBuilder
-                    // The UsePathBase middleware will modify the pathbase and path correctly
-                    PathBase = string.Empty;
-                    Path = originalPath;
+                    var originalPath = RequestUriBuilder.DecodeAndUnescapePath(GetRawUrlInBytes());
+
+                    if (KnownMethod == HttpApiTypes.HTTP_VERB.HttpVerbOPTIONS && string.Equals(RawTarget, "*", StringComparison.Ordinal))
+                    {
+                        PathBase = string.Empty;
+                        Path = string.Empty;
+                    }
+                    else
+                    {
+                        // Path and pathbase are unescaped by RequestUriBuilder
+                        // The UsePathBase middleware will modify the pathbase and path correctly
+                        PathBase = string.Empty;
+                        Path = originalPath;
+                    }
                 }
 
                 var cookedUrl = GetCookedUrl();
@@ -115,12 +117,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 TraceIdentifier = guid.ToString();
 
                 var localEndPoint = GetLocalEndPoint();
-                LocalIpAddress = localEndPoint.GetIPAddress();
-                LocalPort = localEndPoint.GetPort();
+                LocalIpAddress = localEndPoint?.GetIPAddress();
+                LocalPort = localEndPoint != null ? localEndPoint.GetPort() : 0;
 
                 var remoteEndPoint = GetRemoteEndPoint();
-                RemoteIpAddress = remoteEndPoint.GetIPAddress();
-                RemotePort = remoteEndPoint.GetPort();
+                RemoteIpAddress = remoteEndPoint?.GetIPAddress();
+                RemotePort = remoteEndPoint != null ? remoteEndPoint.GetPort() : 0;
                 StatusCode = 200;
 
                 RequestHeaders = new RequestHeaders(this);
@@ -205,7 +207,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             unsafe
             {
                 var hr = 0;
-                hr = NativeMethods.http_flush_response_bytes(_pHttpContext, out var fCompletionExpected);
+                hr = _iisFunctions.FlushResponseBytes(_pHttpContext, out var fCompletionExpected);
                 if (!fCompletionExpected)
                 {
                     _operation.Complete(hr, 0);
@@ -382,7 +384,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             fixed (byte* pReasonPhrase = reasonPhraseBytes)
             {
                 // This copies data into the underlying buffer
-                NativeMethods.http_set_response_status_code(_pHttpContext, (ushort)StatusCode, pReasonPhrase);
+                _iisFunctions.SetResponseStatusCode(_pHttpContext, (ushort)StatusCode, pReasonPhrase);
             }
 
             HttpResponseHeaders.IsReadOnly = true;
@@ -593,11 +595,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                     chunk.fromMemory.BufferLength = (uint)buffer.Length;
                     if (_wasUpgraded)
                     {
-                        hr = NativeMethods.http_websockets_write_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                        hr = _iisFunctions.WebsocketsWriteResponseBytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
                     }
                     else
                     {
-                        hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                        hr = _iisFunctions.WriteResponseBytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
                     }
                 }
             }
@@ -626,11 +628,11 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 }
                 if (_wasUpgraded)
                 {
-                    hr = NativeMethods.http_websockets_write_bytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
+                    hr = _iisFunctions.WebsocketsWriteResponseBytes(_pHttpContext, pDataChunks, nChunks, IISAwaitable.WriteCallback, (IntPtr)_thisHandle, out fCompletionExpected);
                 }
                 else
                 {
-                    hr = NativeMethods.http_write_response_bytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
+                    hr = _iisFunctions.WriteResponseBytes(_pHttpContext, pDataChunks, nChunks, out fCompletionExpected);
                 }
                 // Free the handles
                 foreach (var handle in handles)
@@ -643,7 +645,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             {
                 if (!fCompletionExpected)
                 {
-                    CompleteWriteWebSockets(hr, 0);
+                    _writeWebSocketsOperation.Complete(hr, 0);
                 }
                 return _writeWebSocketsOperation;
             }
@@ -659,7 +661,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private unsafe IISAwaitable ReadAsync(int length)
         {
-            var hr = NativeMethods.http_read_request_bytes(
+            var hr = _iisFunctions.ReadRequestBytes(
                             _pHttpContext,
                             (byte*)_inputHandle.Pointer,
                             length,
@@ -677,7 +679,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             var hr = 0;
             int dwReceivedBytes;
             bool fCompletionExpected;
-            hr = NativeMethods.http_websockets_read_bytes(
+            hr = _iisFunctions.WebsocketsReadRequestBytes(
                                       _pHttpContext,
                                       (byte*)_inputHandle.Pointer,
                                       length,
@@ -687,7 +689,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                                       out fCompletionExpected);
             if (!fCompletionExpected)
             {
-                CompleteReadWebSockets(hr, dwReceivedBytes);
+                _readWebSocketsOperation.Complete(hr, 0);
             }
             return _readWebSocketsOperation;
         }
@@ -787,26 +789,18 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        public void PostCompletion(NativeMethods.REQUEST_NOTIFICATION_STATUS requestNotificationStatus)
+        public void PostCompletion(REQUEST_NOTIFICATION_STATUS requestNotificationStatus)
         {
             Debug.Assert(!_operation.HasContinuation, "Pending async operation!");
 
-            var hr = NativeMethods.http_set_completion_status(_pHttpContext, requestNotificationStatus);
-            if (hr != NativeMethods.S_OK)
-            {
-                throw Marshal.GetExceptionForHR(hr);
-            }
+            _iisFunctions.SetCompletionStatus(_pHttpContext, requestNotificationStatus);
 
-            hr = NativeMethods.http_post_completion(_pHttpContext, 0);
-            if (hr != NativeMethods.S_OK)
-            {
-                throw Marshal.GetExceptionForHR(hr);
-            }
+            _iisFunctions.PostCompletion(_pHttpContext, 0);
         }
 
-        public void IndicateCompletion(NativeMethods.REQUEST_NOTIFICATION_STATUS notificationStatus)
+        public void IndicateCompletion(REQUEST_NOTIFICATION_STATUS notificationStatus)
         {
-            NativeMethods.http_indicate_completion(_pHttpContext, notificationStatus);
+            _iisFunctions.IndicateCompletion(_pHttpContext, notificationStatus);
         }
 
         internal void OnAsyncCompletion(int hr, int cbBytes)
@@ -823,13 +817,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        internal void CompleteWriteWebSockets(int hr, int cbBytes)
+        internal void CompleteWriteWebSockets(IntPtr pCompletionInfo)
         {
+            _iisFunctions.GetCompletionInfo(pCompletionInfo, out int cbBytes, out int hr);
             _writeWebSocketsOperation.Complete(hr, cbBytes);
         }
 
-        internal void CompleteReadWebSockets(int hr, int cbBytes)
+        internal void CompleteReadWebSockets(IntPtr pCompletionInfo)
         {
+            _iisFunctions.GetCompletionInfo(pCompletionInfo, out int cbBytes, out int hr);
             _readWebSocketsOperation.Complete(hr, cbBytes);
         }
 
