@@ -64,12 +64,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private const string NegotiateString = "Negotiate";
         private const string BasicString = "Basic";
 
-        internal unsafe IISHttpContext(BufferPool pipeFactory, IntPtr pHttpContext, IISOptions options)
+        internal unsafe IISHttpContext(BufferPool bufferPool, IntPtr pHttpContext, IISOptions options)
             : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pHttpContext))
         {
             _thisHandle = GCHandle.Alloc(this);
 
-            _pipeFactory = pipeFactory;
+            _bufferPool = bufferPool;
             _pHttpContext = pHttpContext;
 
             NativeMethods.http_set_managed_context(_pHttpContext, (IntPtr)_thisHandle);
@@ -620,7 +620,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
                     chunk.DataChunkType = HttpApiTypes.HTTP_DATA_CHUNK_TYPE.HttpDataChunkFromMemory;
                     chunk.fromMemory.BufferLength = (uint)b.Length;
-                    chunk.fromMemory.pBuffer = (IntPtr)handle.PinnedPointer;
+                    chunk.fromMemory.pBuffer = (IntPtr)handle.Pointer;
 
                     currentChunk++;
                 }
@@ -661,7 +661,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             var hr = NativeMethods.http_read_request_bytes(
                             _pHttpContext,
-                            (byte*)_inputHandle.PinnedPointer,
+                            (byte*)_inputHandle.Pointer,
                             length,
                             out var dwReceivedBytes,
                             out bool fCompletionExpected);
@@ -679,7 +679,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             bool fCompletionExpected;
             hr = NativeMethods.http_websockets_read_bytes(
                                       _pHttpContext,
-                                      (byte*)_inputHandle.PinnedPointer,
+                                      (byte*)_inputHandle.Pointer,
                                       length,
                                       IISAwaitable.ReadCallback,
                                       (IntPtr)_thisHandle,
