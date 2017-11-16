@@ -64,12 +64,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private const string NegotiateString = "Negotiate";
         private const string BasicString = "Basic";
 
-        internal unsafe IISHttpContext(PipeFactory pipeFactory, IntPtr pHttpContext, IISFunctions iisFunctions)
+        internal unsafe IISHttpContext(BufferPool bufferPool, IntPtr pHttpContext, IISOptions options, IISFunctions iisFunctions)
             : base((HttpApiTypes.HTTP_REQUEST*)iisFunctions.GetRawRequest(pHttpContext))
         {
             _thisHandle = GCHandle.Alloc(this);
             _iisFunctions = iisFunctions;
-            _pipeFactory = pipeFactory;
+            _bufferPool = bufferPool;
             _pHttpContext = pHttpContext;
 
             _iisFunctions.SetManagedContext(_pHttpContext, (IntPtr)_thisHandle);
@@ -402,7 +402,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         {
                             fixed (byte* pHeaderValue = headerValueBytes)
                             {
-                                NativeMethods.http_response_set_unknown_header(_pHttpContext, pHeaderName, pHeaderValue, (ushort)headerValueBytes.Length, fReplace: false);
+                                _iisFunctions.SetUnknownResponseHeader(_pHttpContext, pHeaderName, pHeaderValue, (ushort)headerValueBytes.Length, fReplace: false);
                             }
                         }
                     }
@@ -414,7 +414,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                         var headerValueBytes = Encoding.UTF8.GetBytes(headerValues[i]);
                         fixed (byte* pHeaderValue = headerValueBytes)
                         {
-                            NativeMethods.http_response_set_known_header(_pHttpContext, knownHeaderIndex, pHeaderValue, (ushort)headerValueBytes.Length, fReplace: false);
+                            _iisFunctions.SetKnownResponseHeader(_pHttpContext, knownHeaderIndex, pHeaderValue, (ushort)headerValueBytes.Length, fReplace: false);
                         }
                     }
                 }
@@ -870,9 +870,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private WindowsPrincipal GetWindowsPrincipal()
         {
-            var hr = NativeMethods.http_get_authentication_information(_pHttpContext, out var authenticationType, out var token);
+            _iisFunctions.GetAuthenticationInformation(_pHttpContext, out var authenticationType, out var token);
 
-            if (hr == 0 && token != IntPtr.Zero && authenticationType != null)
+            if (token != IntPtr.Zero && authenticationType != null)
             {
                 if ((authenticationType.Equals(NtlmString, StringComparison.OrdinalIgnoreCase)
                     || authenticationType.Equals(NegotiateString, StringComparison.OrdinalIgnoreCase)

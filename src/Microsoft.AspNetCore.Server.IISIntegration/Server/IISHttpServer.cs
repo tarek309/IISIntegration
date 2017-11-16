@@ -25,37 +25,35 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         private IISContextFactory _iisContextFactory;
         private readonly BufferPool _bufferPool = new MemoryPool();
-        private GCHandle _httpServerHandle;
+        internal GCHandle _httpServerHandle;
         private readonly IApplicationLifetime _applicationLifetime;
         private readonly IAuthenticationSchemeProvider _authentication;
         private IISFunctions _iisFunctions;
         private readonly IISOptions _options;
 
         public IFeatureCollection Features { get; } = new FeatureCollection();
-        public IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options, IISFunctions iisFunctions)
+        public IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options)
+            : this(applicationLifetime, authentication, options, new DefaultIISFunctions())
+        {
+        }
+
+        internal IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options, IISFunctions iisFunctions)
         {
             _applicationLifetime = applicationLifetime;
             _authentication = authentication;
-            _options = options.Value;
             _iisFunctions = iisFunctions;
+            _options = options.Value;
             if (_options.ForwardWindowsAuthentication)
             {
                 authentication.AddScheme(new AuthenticationScheme(IISDefaults.AuthenticationScheme, _options.AuthenticationDisplayName, typeof(IISServerAuthenticationHandler)));
             }
-            _iisFunctions = new DefaultIISFunctions();
-        }
-
-        internal IISHttpServer(IApplicationLifetime applicationLifetime, IISFunctions iisFunctions)
-        {
-            _applicationLifetime = applicationLifetime;
-            _iisFunctions = iisFunctions;
         }
 
         public Task StartAsync<TContext>(IHttpApplication<TContext> application, CancellationToken cancellationToken)
         {
             _httpServerHandle = GCHandle.Alloc(this);
 
-            _iisContextFactory = new IISContextFactory<TContext>(_pipeFactory, application, _options, _iisFunctions);
+            _iisContextFactory = new IISContextFactory<TContext>(_bufferPool, application, _options, _iisFunctions);
             // Start the server by registering the callback
             _iisFunctions.RegisterCallbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
 
@@ -125,10 +123,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             context.Dispose();
         }
 
-        private static NativeMethods.REQUEST_NOTIFICATION_STATUS ConvertRequestCompletionResults(bool success)
+        private static REQUEST_NOTIFICATION_STATUS ConvertRequestCompletionResults(bool success)
         {
-            return success ? NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_CONTINUE
-                                                     : NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_FINISH_REQUEST;
+            return success ? REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_CONTINUE
+                                                     : REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_FINISH_REQUEST;
         }
 
         private class IISContextFactory<T> : IISContextFactory
@@ -144,7 +142,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 _bufferPool = bufferPool;
                 _options = options;
                 _iisFunctions = iisFunctions;
-
             }
 
             public IISHttpContext CreateHttpContext(IntPtr pHttpContext)

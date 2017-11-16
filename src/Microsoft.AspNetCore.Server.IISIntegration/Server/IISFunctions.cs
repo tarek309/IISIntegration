@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.HttpSys.Internal;
 using static Microsoft.AspNetCore.Server.IISIntegration.IISDelegates;
 
@@ -24,5 +25,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         void EnableWebsockets(IntPtr pHttpContext);
         void CancelIo(IntPtr pHttpContext);
         void AbortRequest(IntPtr pHttpContext);
+        void SetKnownResponseHeader(IntPtr pHttpContext, int headerId, byte* pHeaderValue, ushort length, bool fReplace);
+        void SetUnknownResponseHeader(IntPtr pHttpContext, byte* pszHeaderName, byte* pszHeaderValue, ushort usHeaderValueLength, bool fReplace);
+        void GetAuthenticationInformation(IntPtr pHttpContext, [MarshalAs(UnmanagedType.BStr)] out string authType, out IntPtr token);
     }
 }

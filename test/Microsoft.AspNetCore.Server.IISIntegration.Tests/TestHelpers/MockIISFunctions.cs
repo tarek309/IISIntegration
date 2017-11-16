@@ -148,5 +148,20 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.Tests
         {
             throw new NotImplementedException();
         }
+
+        public void SetKnownResponseHeader(IntPtr pHttpContext, int headerId, byte* pHeaderValue, ushort length, bool fReplace)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void SetUnknownResponseHeader(IntPtr pHttpContext, byte* pszHeaderName, byte* pszHeaderValue, ushort usHeaderValueLength, bool fReplace)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void GetAuthenticationInformation(IntPtr pHttpContext, [MarshalAs(UnmanagedType.BStr)] out string authType, out IntPtr token)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

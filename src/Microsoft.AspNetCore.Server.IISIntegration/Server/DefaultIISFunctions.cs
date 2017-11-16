@@ -126,17 +126,33 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             ThrowExceptionIfErrored(IISNativeMethods.http_abort_request(pHttpContext));
         }
 
+        public void SetKnownResponseHeader(IntPtr pHttpContext, int headerId, byte* pHeaderValue, ushort length, bool fReplace)
+        {
+            ThrowExceptionIfErrored(IISNativeMethods.http_response_set_known_header(pHttpContext, headerId, pHeaderValue, length, fReplace));
+        }
+
+        public void SetUnknownResponseHeader(IntPtr pHttpContext, byte* pszHeaderName, byte* pszHeaderValue, ushort usHeaderValueLength, bool fReplace)
+        {
+            ThrowExceptionIfErrored(IISNativeMethods.http_response_set_unknown_header(pHttpContext, pszHeaderName, pszHeaderValue, usHeaderValueLength, fReplace));
+        }
+
+        public void GetAuthenticationInformation(IntPtr pHttpContext, [MarshalAs(UnmanagedType.BStr)] out string authType, out IntPtr token)
+        {
+            throw new NotImplementedException();
+        }
+
+
         [DllImport("kernel32.dll")]
         internal static extern IntPtr GetModuleHandle(string lpModuleName);
 
-        internal static bool is_ancm_loaded()
+        internal static bool IsAncmLoaded()
         {
             return GetModuleHandle(AspNetCoreModuleDll) != IntPtr.Zero;
         }
 
-        internal static void IISGetApplicationPaths(out string fullPath, out string virtualPath)
+        internal static void IISGetApplicationProperties(ref IISConfigurationData configurationData)
         {
-            ThrowExceptionIfErrored(IISNativeMethods.http_get_application_paths(out fullPath, out virtualPath));
+            ThrowExceptionIfErrored(IISNativeMethods.http_get_application_properties(ref configurationData));
         }
 
         private class IISNativeMethods
@@ -178,7 +194,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             internal static extern int http_set_managed_context(IntPtr pHttpContext, IntPtr pvManagedContext);
 
             [DllImport(AspNetCoreModuleDll)]
-            public static extern int http_get_application_paths([MarshalAs(UnmanagedType.BStr)] out string fullPath, [MarshalAs(UnmanagedType.BStr)] out string virtualPath);
+            public static extern int http_get_application_properties(ref IISConfigurationData configurationData);
+
             [DllImport(AspNetCoreModuleDll)]
             public static extern int http_shutdown();
 
@@ -196,6 +213,15 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             [DllImport(AspNetCoreModuleDll)]
             public static extern int http_abort_request(IntPtr pHttpContext);
+
+            [DllImport(AspNetCoreModuleDll)]
+            public static extern int http_response_set_unknown_header(IntPtr pHttpContext, byte* pszHeaderName, byte* pszHeaderValue, ushort usHeaderValueLength, bool fReplace);
+
+            [DllImport(AspNetCoreModuleDll)]
+            internal static extern int http_response_set_known_header(IntPtr pHttpContext, int headerId, byte* pHeaderValue, ushort length, bool fReplace);
+
+            [DllImport(AspNetCoreModuleDll)]
+            public static extern int http_get_authentication_information(IntPtr pHttpContext, [MarshalAs(UnmanagedType.BStr)] out string authType, out IntPtr token);
         }
     }
 }

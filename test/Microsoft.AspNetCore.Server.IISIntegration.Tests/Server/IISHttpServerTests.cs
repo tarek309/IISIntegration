@@ -75,7 +75,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration.Tests
 
         private static IISHttpServer CreateServer(MockIISFunctions functions)
         {
-            return new IISHttpServer(null, functions);
+            // For now have all parameters as null
+            return new IISHttpServer(null, null, null, functions);
         }
     }
 }
