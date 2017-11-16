@@ -70,14 +70,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public HttpApiTypes.HTTP_REQUEST_V2* GetRawRequest(IntPtr pHttpContext)
         {
-            ThrowExceptionIfErrored(IISNativeMethods.http_get_raw_request(pHttpContext, out var request));
-            return request;
+            return IISNativeMethods.http_get_raw_request(pHttpContext);
         }
 
         public HttpApiTypes.HTTP_RESPONSE_V2* GetRawResponse(IntPtr pHttpContext)
         {
-            ThrowExceptionIfErrored(IISNativeMethods.http_get_raw_response(pHttpContext, out var response));
-            return response;
+            return IISNativeMethods.http_get_raw_response(pHttpContext);
         }
 
         public void SetResponseStatusCode(IntPtr pHttpContext, ushort statusCode, byte* pszReason)
@@ -138,9 +136,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public void GetAuthenticationInformation(IntPtr pHttpContext, [MarshalAs(UnmanagedType.BStr)] out string authType, out IntPtr token)
         {
-            throw new NotImplementedException();
+            ThrowExceptionIfErrored(IISNativeMethods.http_get_authentication_information(pHttpContext, out authType, out token));
         }
-
 
         [DllImport("kernel32.dll")]
         internal static extern IntPtr GetModuleHandle(string lpModuleName);
@@ -179,10 +176,10 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             public static extern int http_flush_response_bytes(IntPtr pHttpContext, out bool fCompletionExpected);
 
             [DllImport(AspNetCoreModuleDll)]
-            public static extern int http_get_raw_request(IntPtr pHttpContext, out HttpApiTypes.HTTP_REQUEST_V2* request);
+            public static extern HttpApiTypes.HTTP_REQUEST_V2* http_get_raw_request(IntPtr pHttpContext);
 
             [DllImport(AspNetCoreModuleDll)]
-            public static extern int http_get_raw_response(IntPtr pHttpContext, out HttpApiTypes.HTTP_RESPONSE_V2* response);
+            public static extern HttpApiTypes.HTTP_RESPONSE_V2* http_get_raw_response(IntPtr pHttpContext);
 
             [DllImport(AspNetCoreModuleDll)]
             public static extern int http_set_response_status_code(IntPtr pHttpContext, ushort statusCode, byte* pszReason);
