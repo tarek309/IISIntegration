@@ -23,7 +23,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         internal static extern bool CloseHandle(IntPtr handle);
 
         public const int S_OK = 0;
-        private const string AspNetCoreModuleDll = "aspnetcore.dll";
+        private const string AspNetCoreModuleDll = "aspnetcorerh.dll";
 
         public enum REQUEST_NOTIFICATION_STATUS
         {
@@ -32,7 +32,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             RQ_NOTIFICATION_FINISH_REQUEST
         }
 
-        public delegate REQUEST_NOTIFICATION_STATUS PFN_REQUEST_HANDLER(IntPtr pHttpContext, IntPtr pvRequestContext);
+        public delegate REQUEST_NOTIFICATION_STATUS PFN_REQUEST_HANDLER(IntPtr pHttpContext, IntPtr pInProcessHandler, IntPtr pvRequestContext);
         public delegate bool PFN_SHUTDOWN_HANDLER(IntPtr pvRequestContext);
         public delegate REQUEST_NOTIFICATION_STATUS PFN_ASYNC_COMPLETION(IntPtr pvManagedHttpContext, int hr, int bytes);
         public delegate REQUEST_NOTIFICATION_STATUS PFN_WEBSOCKET_ASYNC_COMPLETION(IntPtr pHttpContext, IntPtr completionInfo, IntPtr pvCompletionContext);
@@ -42,7 +42,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         public static extern int http_post_completion(IntPtr pHttpContext, int cbBytes);
 
         [DllImport(AspNetCoreModuleDll)]
-        public static extern int http_set_completion_status(IntPtr pHttpContext, REQUEST_NOTIFICATION_STATUS rquestNotificationStatus);
+        public static extern int http_set_completion_status(IntPtr pHttpContext, IntPtr pInProcessHandler, REQUEST_NOTIFICATION_STATUS rquestNotificationStatus);
 
         [DllImport(AspNetCoreModuleDll)]
         public static extern void http_indicate_completion(IntPtr pHttpContext, REQUEST_NOTIFICATION_STATUS notificationStatus);
@@ -72,7 +72,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         public unsafe static extern bool http_get_completion_info(IntPtr pCompletionInfo, out int cbBytes, out int hr);
 
         [DllImport(AspNetCoreModuleDll)]
-        public unsafe static extern bool http_set_managed_context(IntPtr pHttpContext, IntPtr pvManagedContext);
+        public unsafe static extern bool http_set_managed_context(IntPtr pHttpContext, IntPtr pInProcessHandler, IntPtr pvManagedContext);
 
         [DllImport(AspNetCoreModuleDll)]
         public unsafe static extern int http_get_application_properties(ref IISConfigurationData iiConfigData);

@@ -29,6 +29,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private static bool UpgradeAvailable = (Environment.OSVersion.Version >= new Version(6, 2));
 
         protected readonly IntPtr _pHttpContext;
+        protected readonly IntPtr _pInProcessHandler;
 
         private bool _wasUpgraded;
         private int _statusCode;
@@ -63,15 +64,16 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private const string NegotiateString = "Negotiate";
         private const string BasicString = "Basic";
 
-        internal unsafe IISHttpContext(MemoryPool memoryPool, IntPtr pHttpContext, IISOptions options)
+        internal unsafe IISHttpContext(BufferPool bufferPool, IntPtr pHttpContext, IntPtr pInProcessHandler, IISOptions options)
             : base((HttpApiTypes.HTTP_REQUEST*)NativeMethods.http_get_raw_request(pHttpContext))
         {
             _thisHandle = GCHandle.Alloc(this);
 
             _memoryPool = memoryPool;
             _pHttpContext = pHttpContext;
+            _pInProcessHandler = pInProcessHandler;
 
-            NativeMethods.http_set_managed_context(_pHttpContext, (IntPtr)_thisHandle);
+            NativeMethods.http_set_managed_context(_pHttpContext, pInProcessHandler, (IntPtr)_thisHandle);
             unsafe
             {
                 Method = GetVerb();
@@ -790,7 +792,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             Debug.Assert(!_operation.HasContinuation, "Pending async operation!");
 
-            var hr = NativeMethods.http_set_completion_status(_pHttpContext, requestNotificationStatus);
+            var hr = NativeMethods.http_set_completion_status(_pHttpContext, _pInProcessHandler, requestNotificationStatus);
             if (hr != NativeMethods.S_OK)
             {
                 throw Marshal.GetExceptionForHR(hr);
