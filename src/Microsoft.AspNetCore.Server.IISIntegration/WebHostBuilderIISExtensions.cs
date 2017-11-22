@@ -47,6 +47,7 @@ namespace Microsoft.AspNetCore.Hosting
 
                 // TODO consider adding a configuration load where all variables needed are loaded from ANCM in one call.
                 var iisConfigData = new IISConfigurationData();
+                var five = NativeMethods.test_method();
                 var hResult = NativeMethods.http_get_application_properties(ref iisConfigData);
 
                 var exception = Marshal.GetExceptionForHR(hResult);

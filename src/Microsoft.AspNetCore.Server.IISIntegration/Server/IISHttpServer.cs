@@ -73,12 +73,12 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _memoryPool.Dispose();
         }
 
-        private static NativeMethods.REQUEST_NOTIFICATION_STATUS HandleRequest(IntPtr pHttpContext, IntPtr pInProcessHandler, IntPtr pvRequestContext)
+        private static NativeMethods.REQUEST_NOTIFICATION_STATUS HandleRequest(IntPtr pInProcessHandler, IntPtr pvRequestContext)
         {
             // Unwrap the server so we can create an http context and process the request
             var server = (IISHttpServer)GCHandle.FromIntPtr(pvRequestContext).Target;
 
-            var context = server._iisContextFactory.CreateHttpContext(pHttpContext, pInProcessHandler);
+            var context = server._iisContextFactory.CreateHttpContext(pInProcessHandler);
 
             var task = context.ProcessRequestAsync();
 
@@ -136,9 +136,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
                 _options = options;
             }
 
-            public IISHttpContext CreateHttpContext(IntPtr pHttpContext, IntPtr pInProcessHandler)
+            public IISHttpContext CreateHttpContext(IntPtr pInProcessHandler)
             {
-                return new IISHttpContextOfT<T>(_bufferPool, _application, pHttpContext, pInProcessHandler, _options);
+                return new IISHttpContextOfT<T>(_memoryPool, _application, pInProcessHandler, _options);
             }
         }
     }
@@ -146,6 +146,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
     // Over engineering to avoid allocations...
     internal interface IISContextFactory
     {
-        IISHttpContext CreateHttpContext(IntPtr pHttpContext, IntPtr pInProcessHandler);
+        IISHttpContext CreateHttpContext(IntPtr pInProcessHandler);
     }
 }
