@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-ASP.NET Core IIS Integration
-========
 
 This repo hosts the ASP.NET Core middleware for IIS integration.
 
@@ -83,4 +80,3 @@ For more information see the [.NET Foundation Code of Conduct](http://www.dotnet
 This project is supported by the [.NET Foundation](http://www.dotnetfoundation.org).
 
 
->>>>>>> ANCM/dev
