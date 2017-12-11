@@ -33,7 +33,7 @@
     <SystemMemoryPackageVersion>4.5.0-preview1-26006-06</SystemMemoryPackageVersion>
     <SystemNumericsVectorsPackageVersion>4.5.0-preview1-26006-06</SystemNumericsVectorsPackageVersion>
     <SystemRuntimeCompilerServicesUnsafePackageVersion>4.5.0-preview1-26006-06</SystemRuntimeCompilerServicesUnsafePackageVersion>
-    <SystemSecurityPrincipalWindowsPackageVersion>4.5.0-preview1-25914-04</SystemSecurityPrincipalWindowsPackageVersion>
+    <SystemSecurityPrincipalWindowsPackageVersion>4.5.0-preview1-26006-06</SystemSecurityPrincipalWindowsPackageVersion>
     <SystemTextEncodingsWebUtf8PackageVersion>0.1.0-e171206-2</SystemTextEncodingsWebUtf8PackageVersion>
     <XunitPackageVersion>2.3.1</XunitPackageVersion>
     <XunitRunnerVisualStudioPackageVersion>2.3.1</XunitRunnerVisualStudioPackageVersion>
