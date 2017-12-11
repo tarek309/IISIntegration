@@ -17,9 +17,4 @@
     <PublicSign Condition="'$(OS)' != 'Windows_NT'">true</PublicSign>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- This is an experimental version of the compiler. See https://github.com/dotnet/csharplang/issues/666 for more details. -->
-    <PackageReference Include="Microsoft.NETCore.Compilers" Version="$(MicrosoftNETCoreCompilersPackageVersion)" PrivateAssets="All" />
-  </ItemGroup>
-
 </Project>
