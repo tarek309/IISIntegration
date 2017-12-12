@@ -4,6 +4,7 @@
   </PropertyGroup>
   <PropertyGroup Label="Package Versions">
     <InternalAspNetCoreSdkPackageVersion>2.1.0-preview1-15620</InternalAspNetCoreSdkPackageVersion>
+    <AspNetCoreRequestHandlerPackageVersion>1.0.0-pre-t000</AspNetCoreRequestHandlerPackageVersion>
     <MicrosoftAspNetCoreAspNetCoreModulePackageVersion>1.0.0-pre-10223</MicrosoftAspNetCoreAspNetCoreModulePackageVersion>
     <MicrosoftAspNetCoreAuthenticationCorePackageVersion>2.1.0-preview1-27776</MicrosoftAspNetCoreAuthenticationCorePackageVersion>
     <MicrosoftAspNetCoreHostingAbstractionsPackageVersion>2.1.0-preview1-27776</MicrosoftAspNetCoreHostingAbstractionsPackageVersion>
@@ -37,6 +38,13 @@
     <SystemTextEncodingsWebUtf8PackageVersion>0.1.0-e171206-2</SystemTextEncodingsWebUtf8PackageVersion>
     <XunitPackageVersion>2.3.1</XunitPackageVersion>
     <XunitRunnerVisualStudioPackageVersion>2.3.1</XunitRunnerVisualStudioPackageVersion>
+        <MicrosoftAspNetCoreTestingPackageVersion>2.1.0-preview1-27644</MicrosoftAspNetCoreTestingPackageVersion>
+<MicrosoftWebAdministrationPackageVersion>7.0.0</MicrosoftWebAdministrationPackageVersion>
+    <MicrosoftNetHttpHeadersPackageVersion>2.0.0</MicrosoftNetHttpHeadersPackageVersion>    
+        <MicrosoftExtensionsPlatformAbstractionsPackageVersion>1.1.0</MicrosoftExtensionsPlatformAbstractionsPackageVersion>
+    <SystemManagementAutomationDllPackageVersion>10.0.10586</SystemManagementAutomationDllPackageVersion>
+    <MicrosoftAspNetCoreAllPackageVersion>2.0.0</MicrosoftAspNetCoreAllPackageVersion>
+
   </PropertyGroup>
   <Import Project="$(DotNetPackageVersionPropsPath)" Condition=" '$(DotNetPackageVersionPropsPath)' != '' " />
 </Project>
