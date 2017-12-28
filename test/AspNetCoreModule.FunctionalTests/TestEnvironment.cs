@@ -4,8 +4,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Security.AccessControl;
 using System.Security.Principal;
-
 
 namespace AspNetCoreModule.FunctionalTests
 {
@@ -15,7 +15,6 @@ namespace AspNetCoreModule.FunctionalTests
         public string IIS64BitPath = Path.Combine(Environment.ExpandEnvironmentVariables("%windir%"), "system32", "inetsrv");
         public string IIS32BitPath = Path.Combine(Environment.ExpandEnvironmentVariables("%windir%"), "syswow64", "inetsrv");
         public string ANCMTestPath = Path.Combine(Environment.ExpandEnvironmentVariables("%SystemDrive%") + @"\", "_ANCMTest"); // TODO see if this can be in the user profile.
-
         public ANCMFlags _ancmFlags = ANCMFlags.None;
 
         public TestEnvironment()
@@ -46,7 +45,7 @@ namespace AspNetCoreModule.FunctionalTests
                 throw new FileNotFoundException("IIS is not installed on the machine.");
             }
 
-            // TODO do we want to kill the w3wp process here?
+            // TODO do we want to kill the w3wp process here? I'd say we kill on dispose.
 
             // From what I can tell, the idea is to create a new apphostconfig in the inetsvr folder
             // and move the Http.Config there? Not sure...
@@ -74,6 +73,26 @@ namespace AspNetCoreModule.FunctionalTests
         public void Dispose()
         {
             throw new NotImplementedException();
+        }
+
+        private void CreateTestDirectory()
+        {
+            if (!Directory.Exists(ANCMTestPath))
+            {
+                var directoryInfo = Directory.CreateDirectory(ANCMTestPath);
+                var directorySecurity = directoryInfo.GetAccessControl();
+                var authenticatedUser = new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null);
+                var fileSystemAccessRule = new FileSystemAccessRule(
+                    authenticatedUser,
+                    FileSystemRights.Modify | FileSystemRights.Synchronize,
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None,
+                    AccessControlType.Allow);
+
+                directorySecurity.AddAccessRule(fileSystemAccessRule);
+                directoryInfo.SetAccessControl(directorySecurity);
+            }
+
         }
     }
 }

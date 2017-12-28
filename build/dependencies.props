@@ -34,6 +34,7 @@
     <MicrosoftNETTestSdkPackageVersion>15.3.0</MicrosoftNETTestSdkPackageVersion>
     <MicrosoftWebAdministrationPackageVersion>11.0.0</MicrosoftWebAdministrationPackageVersion>
     <SystemBuffersPackageVersion>4.5.0-preview1-26016-05</SystemBuffersPackageVersion>
+    <SystemIOFileSystemAccessControlPackageVersion>4.5.0-preview1-26016-05</SystemIOFileSystemAccessControlPackageVersion>
     <SystemIOPipelinesPackageVersion>0.1.0-e171215-1</SystemIOPipelinesPackageVersion>
     <SystemManagementAutomationPackageVersion>6.1.7601.17515</SystemManagementAutomationPackageVersion>
     <SystemMemoryPackageVersion>4.5.0-preview1-26016-05</SystemMemoryPackageVersion>

@@ -18,10 +18,5 @@ namespace AspNetCoreModule.FunctionalTests
         public void Test()
         {
         }
-
-        public void Dispose()
-        {
-
-        }
     }
 }
