@@ -36,7 +36,7 @@ InitializeGlobalConfiguration(
         AcquireSRWLockExclusive(&g_srwLockRH);
         fLocked = TRUE;
 
-        if (g_fOutOfProcessInitialize)
+        if (g_fGlobalInitialize)
         {
             // Done by another thread
             goto Finished;
