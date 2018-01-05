@@ -107,14 +107,14 @@ inline bool IsSpace(char ch)
 #include "..\..\CommonLib\utility.h"
 #include "..\..\CommonLib\debugutil.h"
 #include "..\..\CommonLib\requesthandler.h"
-//#include "..\aspnetcore_msg.h"
+#include "..\..\CommonLib\resources.h"
+#include "..\..\CommonLib\aspnetcore_msg.h"
 //#include "aspnetcore_event.h"
 #include "appoffline.h"
 #include "filewatcher.h"
 #include "applicationinfo.h"
 #include "applicationmanager.h"
 #include "globalmodule.h"
-#include "resource.h"
 #include "proxymodule.h"
 
 
@@ -149,6 +149,7 @@ extern DWORD    g_dwActiveServerProcesses;
 extern HMODULE  g_hAspnetCoreRH;
 extern SRWLOCK  g_srwLock;
 extern PCWSTR   g_pwzAspnetcoreRequestHandlerName;
+extern HANDLE   g_hEventLog;
 
 extern PFN_ASPNETCORE_CREATE_APPLICATION      g_pfnAspNetCoreCreateApplication;
 extern PFN_ASPNETCORE_CREATE_REQUEST_HANDLER  g_pfnAspNetCoreCreateRequestHandler;

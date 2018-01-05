@@ -607,3 +607,33 @@ UTILITY::FindDotNetFolders(
 
     FindClose(handle);
 }
+
+
+VOID
+UTILITY::LogEvent(
+    _In_ HANDLE  hEventLog,
+    _In_ WORD    dwEventInfoType,
+    _In_ DWORD   dwEventId,
+    _In_ LPCWSTR pstrMsg
+)
+{
+    LPCWSTR                apsz[1];
+    if (hEventLog != NULL)
+    {
+        apsz[0] = pstrMsg;
+        ReportEventW(hEventLog,
+            dwEventInfoType,
+            0,
+            dwEventId,
+            NULL,
+            1,
+            0,
+            apsz,
+            NULL);
+    }
+
+    if (dwEventInfoType == EVENTLOG_ERROR_TYPE)
+    {
+        fwprintf(stderr, L"ERROR: %s\n", pstrMsg);
+    }
+}
