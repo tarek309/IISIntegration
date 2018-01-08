@@ -1,3 +1,6 @@
+// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the MIT License. See License.txt in the project root for license information.
+
 #include "..\precomp.hxx"
 
 // Just to be aware of the FORWARDING_HANDLER object size.
@@ -50,22 +53,6 @@ FORWARDING_HANDLER::~FORWARDING_HANDLER(
 
     DebugPrintf(ASPNETCORE_DEBUG_FLAG_INFO,
         "FORWARDING_HANDLER::~FORWARDING_HANDLER");
-    //
-    // RemoveRequest() should already have been called and m_pDisconnect
-    // has been freed or m_pDisconnect was never initialized.
-    //
-    // Disconnect notification cleanup would happen first, before
-    // the FORWARDING_HANDLER instance got removed from m_pSharedhandler list.
-    // The m_pServer cleanup would happen afterwards, since there may be a 
-    // call pending from SHARED_HANDLER to  FORWARDING_HANDLER::SetStatusAndHeaders()
-    // 
-    DBG_ASSERT(m_pDisconnect == NULL);
-
-    if (m_pDisconnect != NULL)
-    {
-        m_pDisconnect->ResetHandler();
-        m_pDisconnect = NULL;
-    }
 
     FreeResponseBuffers();
 
@@ -185,35 +172,16 @@ FORWARDING_HANDLER::OnExecuteRequestHandler()
         goto Failure;
     }
 
-    // Set client disconnect callback contract with IIS
-    m_pDisconnect = static_cast<ASYNC_DISCONNECT_CONTEXT *>(
-        pClientConnection->GetModuleContextContainer()->
-        GetConnectionModuleContext(m_pModuleId));
-    if (m_pDisconnect == NULL)
-    {
-        m_pDisconnect = new ASYNC_DISCONNECT_CONTEXT();
-        if (m_pDisconnect == NULL)
-        {
-            hr = E_OUTOFMEMORY;
-            goto Failure;
-        }
-
-        hr = pClientConnection->GetModuleContextContainer()->
-            SetConnectionModuleContext(m_pDisconnect,
-                m_pModuleId);
-        DBG_ASSERT(hr != HRESULT_FROM_WIN32(ERROR_ALREADY_ASSIGNED));
-        if (FAILED(hr))
-        {
-            goto Failure;
-        }
-    }
-
-    m_pDisconnect->SetHandler(this);
-    fHandleSet = TRUE;
-
     // require lock as client disconnect callback may happen
     AcquireSRWLockShared(&m_RequestLock);
     fRequestLocked = TRUE;
+
+    if (FAILED(hr = SetAsyncDisconnectContext(pClientConnection)))
+    {
+        goto Failure;
+    }
+
+    fHandleSet = TRUE;
 
     //
     // Remember the handler being processed in the current thread
@@ -2625,3 +2593,40 @@ FORWARDING_HANDLER::TerminateRequest(
     DBG_ASSERT(TlsGetValue(g_dwTlsIndex) == NULL);
 }
 
+
+HRESULT
+FORWARDING_HANDLER::SetAsyncDisconnectContext
+(
+    IHttpConnection *pClientConnection
+)
+{
+    HRESULT hr = S_OK;
+
+    // Set client disconnect callback contract with IIS
+    m_pDisconnect = static_cast<ASYNC_DISCONNECT_CONTEXT *>(
+        pClientConnection->GetModuleContextContainer()->
+        GetConnectionModuleContext(m_pModuleId));
+    if (m_pDisconnect == NULL)
+    {
+        m_pDisconnect = new ASYNC_DISCONNECT_CONTEXT();
+        if (m_pDisconnect == NULL)
+        {
+            hr = E_OUTOFMEMORY;
+            goto Finished;
+        }
+
+        hr = pClientConnection->GetModuleContextContainer()->
+            SetConnectionModuleContext(m_pDisconnect,
+                m_pModuleId);
+        DBG_ASSERT(hr != HRESULT_FROM_WIN32(ERROR_ALREADY_ASSIGNED));
+        if (FAILED(hr))
+        {
+            goto Finished;
+        }
+    }
+
+    m_pDisconnect->SetHandler(this);
+
+Finished:
+    return hr;
+}

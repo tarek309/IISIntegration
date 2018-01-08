@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -21,6 +22,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private static NativeMethods.PFN_REQUEST_HANDLER _requestHandler = HandleRequest;
         private static NativeMethods.PFN_SHUTDOWN_HANDLER _shutdownHandler = HandleShutdown;
         private static NativeMethods.PFN_ASYNC_COMPLETION _onAsyncCompletion = OnAsyncCompletion;
+        private static NativeMethods.PFN_CLIENT_DISCONNECT_HANDLER _clientDisconnectHandler = HandleClientDisconnect; 
 
         private IISContextFactory _iisContextFactory;
         private readonly MemoryPool _memoryPool = new MemoryPool();
@@ -28,8 +30,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private readonly IApplicationLifetime _applicationLifetime;
         private readonly IAuthenticationSchemeProvider _authentication;
         private readonly IISOptions _options;
-
+        
         public IFeatureCollection Features { get; } = new FeatureCollection();
+
         public IISHttpServer(IApplicationLifetime applicationLifetime, IAuthenticationSchemeProvider authentication, IOptions<IISOptions> options)
         {
             _applicationLifetime = applicationLifetime;
@@ -49,7 +52,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             _iisContextFactory = new IISContextFactory<TContext>(_memoryPool, application, _options);
 
             // Start the server by registering the callback
-            NativeMethods.register_callbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
+            NativeMethods.register_callbacks(_requestHandler, _shutdownHandler, _onAsyncCompletion, _clientDisconnectHandler, (IntPtr)_httpServerHandle, (IntPtr)_httpServerHandle);
 
             return Task.CompletedTask;
         }
@@ -80,16 +83,9 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
             var context = server._iisContextFactory.CreateHttpContext(pInProcessHandler);
 
-            var task = context.ProcessRequestAsync();
+            var task = Task.Run(() => context.ProcessRequestAsync());
 
-            // This should never fail
-            if (task.IsCompleted)
-            {
-                context.Dispose();
-                return ConvertRequestCompletionResults(task.Result);
-            }
-
-            task.ContinueWith((t, state) => CompleteRequest((IISHttpContext)state, t), context);
+            task.ContinueWith((t, state) => CompleteRequest(t, (IISHttpContext)state), context);
 
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
@@ -108,11 +104,17 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             return NativeMethods.REQUEST_NOTIFICATION_STATUS.RQ_NOTIFICATION_PENDING;
         }
 
-        private static void CompleteRequest(IISHttpContext context, Task<bool> completedTask)
+        private static bool HandleClientDisconnect(IntPtr pInProcessHandler, IntPtr pvManagedHttpContext)
+        {
+            var context = (IISHttpContext)GCHandle.FromIntPtr(pvManagedHttpContext).Target;
+            context.Abort(null);
+            return true;
+        }
+
+        private static void CompleteRequest(Task<bool> completedTask, IISHttpContext context)
         {
             // Post completion after completing the request to resume the state machine
             context.PostCompletion(ConvertRequestCompletionResults(completedTask.Result));
-
             // Dispose the context
             context.Dispose();
         }

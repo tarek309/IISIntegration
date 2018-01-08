@@ -25,5 +25,7 @@
 #include "aspnetcoreconfig.h"
 #include "application.h"
 #include "requesthandler.h"
+#include "disconnectcontext.h"
 #include "fx_ver.h"
 #include "hostfxr_utility.h"
+

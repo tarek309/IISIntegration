@@ -21,6 +21,7 @@ namespace IISTestSite
         {
             app.Run(async ctx =>
             {
+                ctx.Response.ContentType = "text/plain";
                 if (ctx.Request.Path.Value.StartsWith("/Path"))
                 {
                     await ctx.Response.WriteAsync(ctx.Request.Path.Value);

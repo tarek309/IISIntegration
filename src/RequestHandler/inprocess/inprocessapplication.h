@@ -7,6 +7,7 @@ typedef void(*request_handler_cb) (int error, IHttpContext* pHttpContext, void* 
 typedef REQUEST_NOTIFICATION_STATUS(*PFN_REQUEST_HANDLER) (IN_PROCESS_HANDLER* pInProcessHandler, void* pvRequestHandlerContext);
 typedef BOOL(*PFN_SHUTDOWN_HANDLER) (void* pvShutdownHandlerContext);
 typedef REQUEST_NOTIFICATION_STATUS(*PFN_MANAGED_CONTEXT_HANDLER)(void *pvManagedHttpContext, HRESULT hrCompletionStatus, DWORD cbCompletion);
+typedef BOOL(*PFN_CLIENT_DISCONNECT_HANDLER) (IN_PROCESS_HANDLER* pInProcessHandler, void* pvRequestHandlerContext);
 
 class IN_PROCESS_APPLICATION : public APPLICATION
 {
@@ -24,6 +25,7 @@ public:
         _In_ PFN_REQUEST_HANDLER request_callback,
         _In_ PFN_SHUTDOWN_HANDLER shutdown_callback,
         _In_ PFN_MANAGED_CONTEXT_HANDLER managed_context_callback,
+        _In_ PFN_CLIENT_DISCONNECT_HANDLER client_disconnect_callback,
         _In_ VOID* pvRequstHandlerContext,
         _In_ VOID* pvShutdownHandlerContext
     );
@@ -67,6 +69,12 @@ public:
         return s_Application;
     }
 
+    HRESULT
+    TerminateRequest(
+        _In_ IN_PROCESS_HANDLER* pInProcessHandler
+
+    );
+
 private:
     // Thread executing the .NET Core process
     HANDLE                          m_hThread;
@@ -80,6 +88,8 @@ private:
     VOID*                           m_ShutdownHandlerContext;
 
     PFN_MANAGED_CONTEXT_HANDLER     m_AsyncCompletionHandler;
+
+    PFN_CLIENT_DISCONNECT_HANDLER   m_ClientDisconnectHandler;
 
     // The event that gets triggered when managed initialization is complete
     HANDLE                          m_pInitalizeEvent;
