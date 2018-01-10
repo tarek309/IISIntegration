@@ -276,7 +276,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     INT         argc = 0;
     PCWSTR*     argv = NULL;
     LPWSTR*     pwzArgs = NULL;
-    STRU        path;
+    STRU        struTempPath;
 
     pwzArgs = CommandLineToArgvW(struArgumentsFromConfig->QueryStr(), &argc);
 
@@ -285,9 +285,11 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
         goto Finished;
     }
 
-    if (!FAILED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &path)))
+    // Try to convert the application dll from a relative to an absolute path
+    // Don't record this failure as pwzArgs[0] may already be an absolute path to the dll.
+    if (!FAILED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struTempPath)))
     {
-        pwzArgs[0] = path.QueryStr();
+        pwzArgs[0] = struTempPath.QueryStr();
     }
 
     argv = new PCWSTR[argc + 2];
