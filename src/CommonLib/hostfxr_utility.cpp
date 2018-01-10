@@ -61,7 +61,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
     {
         goto Finished;
     }
-    
+
     if (!UTILITY::CheckIfFileExists(struDllPath.QueryStr()))
     {
         // Treat access issue as File not found
@@ -125,8 +125,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         else
         {
             hr = UTILITY::ConvertPathToFullPath(
-                pConfig->QueryProcessPath()->QueryStr(), 
-                pConfig->QueryApplicationPath()->QueryStr(), 
+                pConfig->QueryProcessPath()->QueryStr(),
+                pConfig->QueryApplicationPath()->QueryStr(),
                 &strDotnetExeLocation
             );
             if (FAILED(hr))
@@ -241,7 +241,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         hr = ERROR_FILE_INVALID;
         goto Finished;
     }
-    
+
     if (FAILED(hr = SetHostFxrArguments(pConfig->QueryArguments(), &strDotnetExeLocation, pConfig)))
     {
         goto Finished;
@@ -276,12 +276,18 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     INT         argc = 0;
     PCWSTR*     argv = NULL;
     LPWSTR*     pwzArgs = NULL;
+    STRU        path;
 
     pwzArgs = CommandLineToArgvW(struArgumentsFromConfig->QueryStr(), &argc);
 
-    if (pwzArgs == NULL)
+    if (pwzArgs == NULL || argc < 1)
     {
         goto Finished;
+    }
+
+    if (!FAILED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &path)))
+    {
+        pwzArgs[0] = path.QueryStr();
     }
 
     argv = new PCWSTR[argc + 2];
