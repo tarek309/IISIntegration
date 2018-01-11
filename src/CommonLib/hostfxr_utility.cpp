@@ -25,24 +25,21 @@ HOSTFXR_UTILITY::~HOSTFXR_UTILITY()
 //
 HRESULT
 HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
+    STRU*              pStruExePath,
     ASPNETCORE_CONFIG *pConfig
 )
 {
     HRESULT             hr = S_OK;
-    STRU                struExePath;
     STRU                struDllPath;
     STRU                struArguments;
     DWORD               dwPosition;
 
-    hr = UTILITY::ConvertPathToFullPath(pConfig->QueryProcessPath()->QueryStr(),
-        pConfig->QueryApplicationPhysicalPath()->QueryStr(),
-        &struExePath);
     if (FAILED(hr))
     {
         goto Finished;
     }
 
-    if (FAILED(hr = struDllPath.Copy(struExePath)))
+    if (FAILED(hr = struDllPath.Copy(*pStruExePath)))
     {
         goto Finished;
     }
@@ -76,7 +73,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(&struArguments, &struExePath, pConfig)))
+    if (FAILED(hr = SetHostFxrArguments(&struArguments, pStruExePath, pConfig)))
     {
         goto Finished;
     }
@@ -94,18 +91,31 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     HRESULT                     hr = S_OK;
     STRU                        struSystemPathVariable;
     STRU                        struHostFxrPath;
-    STRU                        strDotnetExeLocation;
-    STRU                        strHostFxrSearchExpression;
-    STRU                        strHighestDotnetVersion;
+    STRU                        struExeLocation;
+    STRU                        struHostFxrSearchExpression;
+    STRU                        struHighestDotnetVersion;
     std::vector<std::wstring>   vVersionFolders;
     DWORD                       dwPosition;
     DWORD                       dwPathLength = MAX_PATH;
     DWORD                       dwDotnetLength = 0;
     BOOL                        fFound = FALSE;
 
-    if (UTILITY::CheckIfFileExists(pConfig->QueryProcessPath()->QueryStr()))
+    // Convert the process path an absolute path.
+    hr = UTILITY::ConvertPathToFullPath(
+        pConfig->QueryProcessPath()->QueryStr(),
+        pConfig->QueryApplicationPhysicalPath()->QueryStr(),
+        &struExeLocation
+    );
+
+    if (FAILED(hr))
     {
-        hr = UTILITY::ConvertPathToFullPath(L"hostfxr.dll", pConfig->QueryApplicationPath()->QueryStr(), &struHostFxrPath);
+        goto Finished;
+    }
+
+    if (UTILITY::CheckIfFileExists(struExeLocation.QueryStr()))
+    {
+        // Check if hostfxr is in this folder, if it is, we are a standalone application.
+        hr = UTILITY::ConvertPathToFullPath(L".\\hostfxr.dll", pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struHostFxrPath);
         if (FAILED(hr))
         {
             goto Finished;
@@ -119,31 +129,22 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
                 goto Finished;
             }
 
-            hr = GetStandaloneHostfxrParameters(pConfig);
+            hr = GetStandaloneHostfxrParameters(&struExeLocation, pConfig);
             goto Finished;
-        }
-        else
-        {
-            hr = UTILITY::ConvertPathToFullPath(
-                pConfig->QueryProcessPath()->QueryStr(),
-                pConfig->QueryApplicationPath()->QueryStr(),
-                &strDotnetExeLocation
-            );
-            if (FAILED(hr))
-            {
-                goto Finished;
-            }
         }
     }
 
-    if (FAILED(hr = strDotnetExeLocation.Resize(MAX_PATH)))
+    // Find dotnet.exe on the path.
+    struExeLocation.Reset();
+
+    if (FAILED(hr = struExeLocation.Resize(MAX_PATH)))
     {
         goto Finished;
     }
 
     while (!fFound)
     {
-        dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, strDotnetExeLocation.QueryStr(), NULL);
+        dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
         if (dwDotnetLength == 0)
         {
             hr = GetLastError();
@@ -154,7 +155,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         {
             // Increase size
             dwPathLength *= 2;
-            if (FAILED(hr = strDotnetExeLocation.Resize(dwPathLength)))
+            if (FAILED(hr = struExeLocation.Resize(dwPathLength)))
             {
                 goto Finished;
             }
@@ -165,8 +166,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         }
     }
 
-    if (FAILED(hr = strDotnetExeLocation.SyncWithBuffer())
-        || FAILED(hr = struHostFxrPath.Copy(strDotnetExeLocation)))
+    if (FAILED(hr = struExeLocation.SyncWithBuffer())
+        || FAILED(hr = struHostFxrPath.Copy(struExeLocation)))
     {
         goto Finished;
     }
@@ -200,13 +201,13 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     }
 
     // Find all folders under host\\fxr\\ for version numbers.
-    hr = strHostFxrSearchExpression.Copy(struHostFxrPath);
+    hr = struHostFxrSearchExpression.Copy(struHostFxrPath);
     if (FAILED(hr))
     {
         goto Finished;
     }
 
-    hr = strHostFxrSearchExpression.Append(L"\\*");
+    hr = struHostFxrSearchExpression.Append(L"\\*");
     if (FAILED(hr))
     {
         goto Finished;
@@ -214,7 +215,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     // As we use the logic from core-setup, we are opting to use std here.
     // TODO remove all uses of std?
-    UTILITY::FindDotNetFolders(strHostFxrSearchExpression.QueryStr(), &vVersionFolders);
+    UTILITY::FindDotNetFolders(struHostFxrSearchExpression.QueryStr(), &vVersionFolders);
 
     if (vVersionFolders.size() == 0)
     {
@@ -223,14 +224,14 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         goto Finished;
     }
 
-    hr = UTILITY::FindHighestDotNetVersion(vVersionFolders, &strHighestDotnetVersion);
+    hr = UTILITY::FindHighestDotNetVersion(vVersionFolders, &struHighestDotnetVersion);
     if (FAILED(hr))
     {
         goto Finished;
     }
 
     if (FAILED(hr = struHostFxrPath.Append(L"\\"))
-        || FAILED(hr = struHostFxrPath.Append(strHighestDotnetVersion.QueryStr()))
+        || FAILED(hr = struHostFxrPath.Append(struHighestDotnetVersion.QueryStr()))
         || FAILED(hr = struHostFxrPath.Append(L"\\hostfxr.dll")))
     {
         goto Finished;
@@ -242,7 +243,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(pConfig->QueryArguments(), &strDotnetExeLocation, pConfig)))
+    if (FAILED(hr = SetHostFxrArguments(pConfig->QueryArguments(), &struExeLocation, pConfig)))
     {
         goto Finished;
     }
