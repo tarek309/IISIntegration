@@ -857,18 +857,12 @@ SERVER_PROCESS::StartProcess(
     HRESULT                 hr = S_OK;
     PROCESS_INFORMATION     processInformation = {0};
     STARTUPINFOW            startupInfo = {0};
-//    BOOL                    fDonePrepareCommandLine = FALSE;
     DWORD                   dwRetryCount = 2; // should we allow customer to config it
     DWORD                   dwCreationFlags = 0;
-
     STACK_STRU(             strEventMsg, 256);
-//    STRU                    strFullProcessPath;
-//    STRU                    struRelativePath;
-//    STRU                    struApplicationId;
-//
     MULTISZ                 mszNewEnvironment;
     ENVIRONMENT_VAR_HASH    *pHashTable = NULL;
-//
+
     GetStartupInfoW(&startupInfo);
 
     //
@@ -950,7 +944,7 @@ SERVER_PROCESS::StartProcess(
                 m_struPhysicalPath.QueryStr(),
                 m_struCommandLine.QueryStr(),
                 hr,
-                0);
+                dwRetryCount);
             goto Finished;
         }
 
@@ -986,12 +980,11 @@ SERVER_PROCESS::StartProcess(
         // Backend process starts successfully. Set retry counter to 0
         dwRetryCount = 0;
 
-        
         if (SUCCEEDED(strEventMsg.SafeSnwprintf(
-            ASPNETCORE_EVENT_PROCESS_START_SUCCESS_MSG,
-            m_struAppFullPath.QueryStr(),
-            m_dwProcessId,
-            m_dwPort)))
+                ASPNETCORE_EVENT_PROCESS_START_SUCCESS_MSG,
+                m_struAppFullPath.QueryStr(),
+                m_dwProcessId,
+                m_dwPort)))
         {
             UTILITY::LogEvent(g_hEventLog,
                 EVENTLOG_INFORMATION_TYPE,
@@ -1012,26 +1005,27 @@ SERVER_PROCESS::StartProcess(
             delete pHashTable;
             pHashTable = NULL;
         }
-    }
 
-    if (FAILED(hr))
-    {
-        if (strEventMsg.IsEmpty())
+        if (FAILED(hr))
         {
-              strEventMsg.SafeSnwprintf(
-                   ASPNETCORE_EVENT_PROCESS_START_POSTCREATE_ERROR_MSG,
-                   m_struAppFullPath.QueryStr(),
-                   m_struPhysicalPath.QueryStr(),
-                   m_struCommandLine.QueryStr(),
-                   hr);
-        }
+            if (strEventMsg.IsEmpty())
+            {
+                strEventMsg.SafeSnwprintf(
+                    ASPNETCORE_EVENT_PROCESS_START_POSTCREATE_ERROR_MSG,
+                    m_struAppFullPath.QueryStr(),
+                    m_struPhysicalPath.QueryStr(),
+                    m_struCommandLine.QueryStr(),
+                    hr,
+                    dwRetryCount);
+            }
 
-        if (!strEventMsg.IsEmpty())
-        {
-            UTILITY::LogEvent(g_hEventLog,
-                EVENTLOG_ERROR_TYPE,
-                ASPNETCORE_EVENT_PROCESS_START_ERROR,
-                strEventMsg.QueryStr());
+            if (!strEventMsg.IsEmpty())
+            {
+                UTILITY::LogEvent(g_hEventLog,
+                    EVENTLOG_ERROR_TYPE,
+                    ASPNETCORE_EVENT_PROCESS_START_ERROR,
+                    strEventMsg.QueryStr());
+            }
         }
     }
 
@@ -1067,7 +1061,6 @@ SERVER_PROCESS::StartProcess(
         }
 
         StopProcess();
-
         StopAllProcessesInJobObject();
     }
     return hr;

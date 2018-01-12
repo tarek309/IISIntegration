@@ -147,16 +147,14 @@ HRESULT
             ASPNETCORE_EVENT_MODULE_DISABLED_MSG)))
         {
             UTILITY::LogEvent(g_hEventLog,
-                EVENTLOG_INFORMATION_TYPE,
-                ASPNETCORE_EVENT_MODULE_DISABLED,
-                strEventMsg.QueryStr());
+                              EVENTLOG_WARNING_TYPE,
+                              ASPNETCORE_EVENT_MODULE_DISABLED,
+                              strEventMsg.QueryStr());
         }
         // this will return 500 error to client
         // as we did not register the module
         goto Finished;
     }
-
-
 
     //
     // Create the factory before any static initialization.

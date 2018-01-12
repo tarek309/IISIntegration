@@ -141,16 +141,15 @@ APPLICATION_INFO::UpdateAppOfflineFileHandle()
                 m_pApplication->QueryConfig()->QueryApplicationPath()->QueryStr())))
             {
                 UTILITY::LogEvent(g_hEventLog,
-                    EVENTLOG_INFORMATION_TYPE,
-                    ASPNETCORE_EVENT_RECYCLE_APPOFFLINE,
-                    strEventMsg.QueryStr());
+                                  EVENTLOG_INFORMATION_TYPE,
+                                  ASPNETCORE_EVENT_RECYCLE_APPOFFLINE,
+                                  strEventMsg.QueryStr());
             }
 
             m_pApplication->ShutDown();
             m_pApplication->DereferenceApplication();
             m_pApplication = NULL;
 
-            
         }
     }
 }

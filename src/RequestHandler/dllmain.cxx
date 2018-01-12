@@ -224,7 +224,6 @@ EnsureOutOfProcessInitializtion()
             goto Finished;
         }
 
-
         hr = FORWARDING_HANDLER::StaticInitialize(g_fEnableReferenceCountTracing);
         if (FAILED(hr))
         {

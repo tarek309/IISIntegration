@@ -617,19 +617,18 @@ UTILITY::LogEvent(
     _In_ LPCWSTR pstrMsg
 )
 {
-    LPCWSTR                apsz[1];
     if (hEventLog != NULL)
     {
-        apsz[0] = pstrMsg;
         ReportEventW(hEventLog,
             dwEventInfoType,
-            0,
+            0,        // wCategory
             dwEventId,
-            NULL,
-            1,
-            0,
-            apsz,
-            NULL);
+            NULL,     // lpUserSid
+            1,        // wNumStrings
+            0,        // dwDataSize,
+            &pstrMsg,
+            NULL      // lpRawData
+        );
     }
 
     if (dwEventInfoType == EVENTLOG_ERROR_TYPE)
