@@ -25,7 +25,7 @@ HOSTFXR_UTILITY::~HOSTFXR_UTILITY()
 //
 HRESULT
 HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
-    STRU*              pStruExePath,
+    PCWSTR              pStruExePath,
     ASPNETCORE_CONFIG *pConfig
 )
 {
@@ -39,7 +39,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = struDllPath.Copy(*pStruExePath)))
+    if (FAILED(hr = struDllPath.Copy(pStruExePath)))
     {
         goto Finished;
     }
@@ -73,7 +73,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(&struArguments, pStruExePath, pConfig)))
+    if (FAILED(hr = SetHostFxrArguments(struArguments.QueryStr(), pStruExePath, pConfig)))
     {
         goto Finished;
     }
@@ -129,7 +129,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
                 goto Finished;
             }
 
-            hr = GetStandaloneHostfxrParameters(&struExeLocation, pConfig);
+            hr = GetStandaloneHostfxrParameters(struExeLocation.QueryStr(), pConfig);
             goto Finished;
         }
     }
@@ -243,7 +243,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(pConfig->QueryArguments(), &struExeLocation, pConfig)))
+    if (FAILED(hr = SetHostFxrArguments(pConfig->QueryArguments()->QueryStr(), struExeLocation.QueryStr(), pConfig)))
     {
         goto Finished;
     }
@@ -268,8 +268,8 @@ Finished:
 // 
 HRESULT
 HOSTFXR_UTILITY::SetHostFxrArguments(
-    STRU* struArgumentsFromConfig,
-    STRU* pstruExePath,
+    PCWSTR struArgumentsFromConfig,
+    PCWSTR pstruExePath,
     ASPNETCORE_CONFIG* pConfig
 )
 {
@@ -278,12 +278,21 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     PCWSTR*     argv = NULL;
     LPWSTR*     pwzArgs = NULL;
     STRU        struTempPath;
+    DWORD         dwArgsProcessed = 0;
 
-    pwzArgs = CommandLineToArgvW(struArgumentsFromConfig->QueryStr(), &argc);
+    pwzArgs = CommandLineToArgvW(struArgumentsFromConfig, &argc);
 
-    if (pwzArgs == NULL || argc < 1)
+    if (pwzArgs == NULL)
     {
-        goto Finished;
+        hr = HRESULT_FROM_WIN32(GetLastError());
+        goto Failure;
+    }
+
+    if (argc < 1)
+    {
+        // Invalid arguments
+        hr = E_INVALIDARG;
+        goto Failure;
     }
 
     // Try to convert the application dll from a relative to an absolute path
@@ -297,18 +306,42 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     if (argv == NULL)
     {
         hr = E_OUTOFMEMORY;
-        goto Finished;
+        goto Failure;
     }
 
-    argv[0] = SysAllocString(pstruExePath->QueryStr());
+    argv[0] = SysAllocString(pstruExePath);
+    if (argv[0] == NULL)
+    {
+        goto Failure;
+    }
+    dwArgsProcessed++;
+
     argv[1] = SysAllocString(L"exec");
+    if (argv[1] == NULL)
+    {
+        goto Failure;
+    }
+    dwArgsProcessed++;
 
     for (INT i = 0; i < argc; i++)
     {
         argv[i + 2] = SysAllocString(pwzArgs[i]);
+        if (argv[1] == NULL)
+        {
+            goto Failure;
+        }
+        dwArgsProcessed++;
     }
 
     pConfig->SetHostFxrArguments(argc + 2, argv);
+    goto Finished;
+
+Failure:
+    for (DWORD i = 0; i < dwArgsProcessed; i++)
+    {
+        SysFreeString( (BSTR)argv[i] );
+    }
+    delete[] argv;
 
 Finished:
     if (pwzArgs != NULL)

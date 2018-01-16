@@ -23,16 +23,16 @@ private:
     static
     HRESULT
     GetStandaloneHostfxrParameters(
-        STRU*              pStruExePath,
+        PCWSTR             pStruExePath,
         ASPNETCORE_CONFIG *pConfig
     );
 
     static
     HRESULT
     SetHostFxrArguments(
-        STRU * struArguments,
-        STRU * pStruExePath,
-        ASPNETCORE_CONFIG *pConfig
+        PCWSTR              struArguments,
+        PCWSTR              pStruExePath,
+        ASPNETCORE_CONFIG  *pConfig
     );
 };
 
