@@ -43,7 +43,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         private readonly MemoryPool _memoryPool;
 
         private GCHandle _thisHandle;
-        private MemoryHandle _inputHandle;
         private IISAwaitable _operation = new IISAwaitable();
 
         private IISAwaitable _readWebSocketsOperation;
@@ -141,7 +140,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             RequestBody = new IISHttpRequestBody(this);
             ResponseBody = new IISHttpResponseBody(this);
 
-            Input = new Pipe(new PipeOptions(_memoryPool, readerScheduler: Scheduler.TaskRun));
             var pipe = new Pipe(new PipeOptions(_memoryPool,  readerScheduler: Scheduler.TaskRun));
             Output = new OutputProducer(pipe);
         }
@@ -165,7 +163,6 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         internal WindowsPrincipal WindowsUser { get; set; }
         public Stream RequestBody { get; set; }
         public Stream ResponseBody { get; set; }
-        public IPipe Input { get; set; }
         public OutputProducer Output { get; set; }
 
         public IHeaderDictionary RequestHeaders { get; set; }
@@ -231,31 +228,8 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
 
         public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            StartReadingRequestBody();
-
-            while (true)
-            {
-                var result = await Input.Reader.ReadAsync();
-                var readableBuffer = result.Buffer;
-                try
-                {
-                    if (!readableBuffer.IsEmpty)
-                    {
-                        var actual = Math.Min(readableBuffer.Length, count);
-                        readableBuffer = readableBuffer.Slice(0, actual);
-                        readableBuffer.CopyTo(buffer);
-                        return (int)actual;
-                    }
-                    else if (result.IsCompleted)
-                    {
-                        return 0;
-                    }
-                }
-                finally
-                {
-                    Input.Reader.Advance(readableBuffer.End, readableBuffer.End);
-                }
-            }
+            // Create a pinned buffer and read into it.
+            await ReadUnsafeAsync(buffer, offset, count, cancellationToken);
         }
 
         public Task WriteAsync(ArraySegment<byte> data, CancellationToken cancellationToken = default(CancellationToken))
@@ -422,71 +396,7 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
         {
             // TODO
         }
-
-        public void StartReadingRequestBody()
-        {
-            if (_readingTask == null)
-            {
-                _readingTask = ProcessRequestBody();
-            }
-        }
-
-        private async Task ProcessRequestBody()
-        {
-            try
-            {
-                while (true)
-                {
-                    // These buffers are pinned
-                    var wb = Input.Writer.Alloc(MinAllocBufferSize);
-                    _inputHandle = wb.Buffer.Retain(true);
-
-                    try
-                    {
-                        int read = 0;
-                        if (_wasUpgraded)
-                        {
-                            read = await ReadWebSocketsAsync(wb.Buffer.Length);
-                        }
-                        else
-                        {
-                            _currentOperation = _currentOperation.ContinueWith(async (t) =>
-                            {
-                                _currentOperationType = CurrentOperationType.Read;
-                                read = await ReadAsync(wb.Buffer.Length);
-                            }).Unwrap();
-                            await _currentOperation;
-                        }
-
-                        if (read == 0)
-                        {
-                            break;
-                        }
-
-                        wb.Advance(read);
-                    }
-                    finally
-                    {
-                        wb.Commit();
-                        _inputHandle.Dispose();
-                    }
-
-                    var result = await wb.FlushAsync();
-
-                    if (result.IsCompleted || result.IsCancelled)
-                    {
-                        break;
-                    }
-                }
-
-                Input.Writer.Complete();
-            }
-            catch (Exception ex)
-            {
-                Input.Writer.Complete(ex);
-            }
-        }
-
+       
         public void StartWritingResponseBody()
         {
             if (_writingTask == null)
@@ -656,38 +566,52 @@ namespace Microsoft.AspNetCore.Server.IISIntegration
             }
         }
 
-        private unsafe IISAwaitable ReadAsync(int length)
+        private unsafe IISAwaitable ReadUnsafeAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            var hr = NativeMethods.http_read_request_bytes(
-                            _pInProcessHandler,
-                            (byte*)_inputHandle.Pointer,
-                            length,
-                            out var dwReceivedBytes,
-                            out bool fCompletionExpected);
-            if (!fCompletionExpected)
+            var localBuffer = new byte[count];
+
+            fixed (byte* localBufferPointer = localBuffer)
             {
-                _operation.Complete(hr, dwReceivedBytes);
+                var hr = NativeMethods.http_read_request_bytes(
+                          _pInProcessHandler,
+                          localBufferPointer,
+                          count,
+                          out var dwReceivedBytes,
+                          out bool fCompletionExpected);
+                if (!fCompletionExpected)
+                {
+                    _operation.Complete(hr, dwReceivedBytes);
+                }
             }
+            localBuffer.CopyTo(buffer, offset);
             return _operation;
         }
 
-        private unsafe IISAwaitable ReadWebSocketsAsync(int length)
+        private unsafe IISAwaitable ReadWebSocketsUnsafeAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             var hr = 0;
             int dwReceivedBytes;
             bool fCompletionExpected;
-            hr = NativeMethods.http_websockets_read_bytes(
+            var localBuffer = new byte[count];
+
+            fixed (byte* localBufferPointer = localBuffer)
+            {
+                hr = NativeMethods.http_websockets_read_bytes(
                                       _pInProcessHandler,
-                                      (byte*)_inputHandle.Pointer,
-                                      length,
+                                      localBufferPointer,
+                                      count,
                                       IISAwaitable.ReadCallback,
                                       (IntPtr)_thisHandle,
                                       out dwReceivedBytes,
                                       out fCompletionExpected);
-            if (!fCompletionExpected)
-            {
-                CompleteReadWebSockets(hr, dwReceivedBytes);
+                if (!fCompletionExpected)
+                {
+                    CompleteReadWebSockets(hr, dwReceivedBytes);
+                }
             }
+
+            localBuffer.CopyTo(buffer, offset);
+
             return _readWebSocketsOperation;
         }
 
