@@ -5,7 +5,8 @@
 
 FILE_WATCHER::FILE_WATCHER() :
     m_hCompletionPort(NULL),
-    m_hChangeNotificationThread(NULL)
+    m_hChangeNotificationThread(NULL),
+    m_fThreadExit(FALSE)
 {
 }
 
@@ -13,8 +14,16 @@ FILE_WATCHER::~FILE_WATCHER()
 {
     if (m_hChangeNotificationThread != NULL)
     {
+        DWORD dwRetryCounter = 10;
+
+        // signal the file watch thread to exit
         PostQueuedCompletionStatus(m_hCompletionPort, 0, FILE_WATCHER_SHUTDOWN_KEY, NULL);
-        WaitForSingleObject(m_hChangeNotificationThread, INFINITE);
+        while (!m_fThreadExit && dwRetryCounter > 0)
+        {
+            Sleep(10); // totally wait for 100 ms
+            dwRetryCounter--;
+        }
+
         CloseHandle(m_hChangeNotificationThread);
         m_hChangeNotificationThread = NULL;
     }
@@ -126,6 +135,7 @@ Win32 error
         cbCompletion = 0;
     }
 
+    pFileMonitor->m_fThreadExit = TRUE;
     return 0;
 }
 
