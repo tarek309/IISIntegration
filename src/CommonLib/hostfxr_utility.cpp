@@ -25,7 +25,7 @@ HOSTFXR_UTILITY::~HOSTFXR_UTILITY()
 //
 HRESULT
 HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
-    PCWSTR              pStruExePath,
+    PCWSTR              pwzExePath,
     ASPNETCORE_CONFIG *pConfig
 )
 {
@@ -39,7 +39,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = struDllPath.Copy(pStruExePath)))
+    if (FAILED(hr = struDllPath.Copy(pwzExePath)))
     {
         goto Finished;
     }
@@ -73,7 +73,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(struArguments.QueryStr(), pStruExePath, pConfig)))
+    if (FAILED(hr = SetHostFxrArguments(struArguments.QueryStr(), pwzExePath, pConfig)))
     {
         goto Finished;
     }
@@ -114,7 +114,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     if (UTILITY::CheckIfFileExists(struExeLocation.QueryStr()))
     {
-        // Check if hostfxr is in this folder, if it is, we are a standalone application.
+        // Check if hostfxr is in this folder, if it is, we are a standalone application,
+        // else we assume we received an absolute path to dotnet.exe
         hr = UTILITY::ConvertPathToFullPath(L".\\hostfxr.dll", pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struHostFxrPath);
         if (FAILED(hr))
         {
@@ -133,36 +134,35 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
             goto Finished;
         }
     }
-
-    // Find dotnet.exe on the path.
-    struExeLocation.Reset();
-
-    if (FAILED(hr = struExeLocation.Resize(MAX_PATH)))
+    else
     {
-        goto Finished;
-    }
-
-    while (!fFound)
-    {
-        dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
-        if (dwDotnetLength == 0)
+        if (FAILED(hr = struExeLocation.Resize(MAX_PATH)))
         {
-            hr = GetLastError();
-            // Could not find dotnet
             goto Finished;
         }
-        else if (dwDotnetLength == dwPathLength)
+
+        while (!fFound)
         {
-            // Increase size
-            dwPathLength *= 2;
-            if (FAILED(hr = struExeLocation.Resize(dwPathLength)))
+            dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
+            if (dwDotnetLength == 0)
             {
+                hr = GetLastError();
+                // Could not find dotnet
                 goto Finished;
             }
-        }
-        else
-        {
-            fFound = TRUE;
+            else if (dwDotnetLength == dwPathLength)
+            {
+                // Increase size
+                dwPathLength *= 2;
+                if (FAILED(hr = struExeLocation.Resize(dwPathLength)))
+                {
+                    goto Finished;
+                }
+            }
+            else
+            {
+                fFound = TRUE;
+            }
         }
     }
 
@@ -268,8 +268,8 @@ Finished:
 // 
 HRESULT
 HOSTFXR_UTILITY::SetHostFxrArguments(
-    PCWSTR struArgumentsFromConfig,
-    PCWSTR pstruExePath,
+    PCWSTR pwzArgumentsFromConfig,
+    PCWSTR pwzExePath,
     ASPNETCORE_CONFIG* pConfig
 )
 {
@@ -280,7 +280,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     STRU        struTempPath;
     DWORD         dwArgsProcessed = 0;
 
-    pwzArgs = CommandLineToArgvW(struArgumentsFromConfig, &argc);
+    pwzArgs = CommandLineToArgvW(pwzArgumentsFromConfig, &argc);
 
     if (pwzArgs == NULL)
     {
@@ -309,9 +309,10 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
         goto Failure;
     }
 
-    argv[0] = SysAllocString(pstruExePath);
+    argv[0] = SysAllocString(pwzExePath);
     if (argv[0] == NULL)
     {
+        hr = E_OUTOFMEMORY;
         goto Failure;
     }
     dwArgsProcessed++;
@@ -319,6 +320,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     argv[1] = SysAllocString(L"exec");
     if (argv[1] == NULL)
     {
+        hr = E_OUTOFMEMORY;
         goto Failure;
     }
     dwArgsProcessed++;
@@ -328,6 +330,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
         argv[i + 2] = SysAllocString(pwzArgs[i]);
         if (argv[1] == NULL)
         {
+            hr = E_OUTOFMEMORY;
             goto Failure;
         }
         dwArgsProcessed++;
