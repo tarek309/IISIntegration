@@ -264,7 +264,7 @@ Finished:
 // Arg structure:
 // argv[0] = Path to exe activating hostfxr.
 // argv[1] = L"exec"
-// argv[2] = first argument specified in the arguments portion of aspnetcore config. 
+// argv[2] = absolute path to dll. 
 // 
 HRESULT
 HOSTFXR_UTILITY::SetHostFxrArguments(
@@ -295,13 +295,6 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
         goto Failure;
     }
 
-    // Try to convert the application dll from a relative to an absolute path
-    // Don't record this failure as pwzArgs[0] may already be an absolute path to the dll.
-    if (!FAILED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struTempPath)))
-    {
-        pwzArgs[0] = struTempPath.QueryStr();
-    }
-
     argv = new PCWSTR[argc + 2];
     if (argv == NULL)
     {
@@ -310,6 +303,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     }
 
     argv[0] = SysAllocString(pwzExePath);
+
     if (argv[0] == NULL)
     {
         hr = E_OUTOFMEMORY;
@@ -325,10 +319,27 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     }
     dwArgsProcessed++;
 
-    for (INT i = 0; i < argc; i++)
+    // Try to convert the application dll from a relative to an absolute path
+    // Don't record this failure as pwzArgs[0] may already be an absolute path to the dll.
+    if (SUCCEEDED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struTempPath)))
+    {
+        argv[2] = struTempPath.QueryStr();
+    }
+    else
+    {
+        argv[2] = SysAllocString(pwzArgs[0]);
+    }
+    if (argv[2] == NULL)
+    {
+        hr = E_OUTOFMEMORY;
+        goto Failure;
+    }
+    dwArgsProcessed++;
+
+    for (INT i = 1; i < argc; i++)
     {
         argv[i + 2] = SysAllocString(pwzArgs[i]);
-        if (argv[1] == NULL)
+        if (argv[i + 2] == NULL)
         {
             hr = E_OUTOFMEMORY;
             goto Failure;
@@ -340,10 +351,14 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     goto Finished;
 
 Failure:
-    for (DWORD i = 0; i < dwArgsProcessed; i++)
+    if (argv != NULL)
     {
-        SysFreeString( (BSTR)argv[i] );
+        for (DWORD i = 0; i < dwArgsProcessed; i++)
+        {
+            SysFreeString((BSTR)argv[i]);
+        }
     }
+
     delete[] argv;
 
 Finished:
