@@ -103,6 +103,7 @@ inline bool IsSpace(char ch)
 
 #include "..\..\CommonLib\environmentvariablehash.h"
 #include "..\..\CommonLib\aspnetcoreconfig.h"
+#include "..\..\CommonLib\hostfxr_utility.h"
 #include "..\..\CommonLib\application.h"
 #include "..\..\CommonLib\utility.h"
 #include "..\..\CommonLib\debugutil.h"
@@ -116,6 +117,7 @@ inline bool IsSpace(char ch)
 #include "applicationmanager.h"
 #include "globalmodule.h"
 #include "proxymodule.h"
+#include "applicationinfo.h"
 
 
 FORCEINLINE
@@ -141,16 +143,15 @@ HRESULT_FROM_GETLASTERROR()
            : E_FAIL;
 }
 
-extern PVOID    g_pModuleId;
-extern BOOL     g_fAspnetcoreRHAssemblyLoaded;
-extern BOOL     g_fAspnetcoreRHLoadedError;
-extern BOOL     g_fEnableReferenceCountTracing;
-extern DWORD    g_dwActiveServerProcesses;
-extern HMODULE  g_hAspnetCoreRH;
-extern SRWLOCK  g_srwLock;
-extern PCWSTR   g_pwzAspnetcoreRequestHandlerName;
-extern HANDLE   g_hEventLog;
-
+extern PVOID        g_pModuleId;
+extern BOOL         g_fAspnetcoreRHAssemblyLoaded;
+extern BOOL         g_fAspnetcoreRHLoadedError;
+extern BOOL         g_fEnableReferenceCountTracing;
+extern DWORD        g_dwActiveServerProcesses;
+extern HINSTANCE    g_hModule;
+extern HMODULE      g_hAspnetCoreRH;
+extern SRWLOCK      g_srwLock;
+extern PCWSTR       g_pwzAspnetcoreRequestHandlerName;
 extern PFN_ASPNETCORE_CREATE_APPLICATION      g_pfnAspNetCoreCreateApplication;
 extern PFN_ASPNETCORE_CREATE_REQUEST_HANDLER  g_pfnAspNetCoreCreateRequestHandler;
 #pragma warning( error : 4091)

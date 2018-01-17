@@ -92,13 +92,6 @@ public:
     );
 
     static
-    BOOL
-    GetSystemPathVariable(
-        _In_ PCWSTR pszEnvironmentVariable,
-        _Out_ STRU *pstrResult
-    );
-
-    static
     VOID
     FindDotNetFolders(
         _In_ PCWSTR pszPath,
@@ -113,13 +106,19 @@ public:
     );
 
     static
+    BOOL
+    CheckIfFileExists(
+        PCWSTR pszFilePath
+    );
+
+    static
     VOID
     LogEvent(
         _In_ HANDLE  hEventLog,
         _In_ WORD    dwEventInfoType,
         _In_ DWORD   dwEventId,
         _In_ LPCWSTR pstrMsg
-    );
+   );
 
 private:
 
