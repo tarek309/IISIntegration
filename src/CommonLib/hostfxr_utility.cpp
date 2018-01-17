@@ -323,7 +323,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     // Don't record this failure as pwzArgs[0] may already be an absolute path to the dll.
     if (SUCCEEDED(UTILITY::ConvertPathToFullPath(pwzArgs[0], pConfig->QueryApplicationPhysicalPath()->QueryStr(), &struTempPath)))
     {
-        argv[2] = struTempPath.QueryStr();
+        argv[2] = SysAllocString(struTempPath.QueryStr());
     }
     else
     {
