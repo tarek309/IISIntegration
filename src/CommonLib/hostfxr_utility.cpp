@@ -100,6 +100,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     DWORD                       dwDotnetLength = 0;
     DWORD                       dwBinaryType = 0;
     BOOL                        fFound = FALSE;
+    BOOL                        fIsWow64Process = FALSE;
+    BOOL                        fIsCurrentProcess64Bit;
 
     // Convert the process path an absolute path.
     hr = UTILITY::ConvertPathToFullPath(
@@ -165,47 +167,57 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
                 fFound = TRUE;
             }
         }
-        // Also verify
-        BOOL bitness = FALSE;
-        BOOL is64Bit;
-        BOOL result = IsWow64Process(GetCurrentProcess(), _Out_ &bitness);
-        if ( !result )
+
+        // Verify that the dotnet.exe found is the correct bitness.
+        // To check this, we figure out the process bitness through checking 
+        // IsWow64Process https://msdn.microsoft.com/en-us/library/windows/desktop/ms684139(v=vs.85).aspx
+        // and GetNativeSystemInfo https://msdn.microsoft.com/en-us/library/windows/desktop/ms724340(v=vs.85).aspx
+        // We get the bitness of dotnet.exe through GetBinaryTypeW
+        // https://msdn.microsoft.com/en-us/library/aa364819(VS.85).aspx
+        if ( !IsWow64Process( GetCurrentProcess(), &fIsWow64Process ) )
         {
-            // failure, error.
+            // Calling IsWow64Process failed
+            hr = HRESULT_FROM_WIN32( GetLastError() );
+            goto Finished;
         }
-        if ( bitness )
+        if ( fIsWow64Process )
         {
             // 32 bit mode
-            is64Bit = FALSE;
+            fIsCurrentProcess64Bit = FALSE;
         }
         else
         {
             SYSTEM_INFO systemInfo;
             GetNativeSystemInfo( &systemInfo );
-            is64Bit = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+            fIsCurrentProcess64Bit = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
         }
-        if ( GetBinaryTypeW( struExeLocation.QueryStr(), &dwBinaryType ) )
-        {
-            // failure
-        }
-        
 
-        if (!(fFound && is64Bit == (dwBinaryType == SCS_64BIT_BINARY)))
+        if ( !GetBinaryTypeW( struExeLocation.QueryStr(), &dwBinaryType ) )
+        {
+            hr = HRESULT_FROM_WIN32( GetLastError() );
+            goto Finished;
+        }
+
+        if (!(fFound && fIsCurrentProcess64Bit == (dwBinaryType == SCS_64BIT_BINARY)))
         {
             // Try finding dotnet exe based on the bitness of the current running process
             // We can use the ProgramFiles env var to direct us to either
             DWORD retSize = GetEnvironmentVariable( L"ProgramFiles", struExeLocation.QueryStr(), dwPathLength );
             if (retSize == 0)
             {
-                // error
+                hr = HRESULT_FROM_WIN32( GetLastError() );
+                goto Finished;
             }
-            if (FAILED(struExeLocation.SyncWithBuffer()) || FAILED(struExeLocation.Append(L"\\dotnet\\dotnet.exe")))
+            if (FAILED(hr = struExeLocation.SyncWithBuffer()) ||
+                 FAILED(hr = struExeLocation.Append(L"\\dotnet\\dotnet.exe")))
             {
-                // error
+                goto Finished;
             }
+            // Not checking if dotnet.exe in program files is correct bitness.
             if (!UTILITY::CheckIfFileExists(struExeLocation.QueryStr()))
             {
-                // Error
+                hr = HRESULT_FROM_WIN32( GetLastError() );
+                goto Finished;
             }
         }
     }
