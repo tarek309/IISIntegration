@@ -95,9 +95,10 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     STRU                        struHostFxrSearchExpression;
     STRU                        struHighestDotnetVersion;
     std::vector<std::wstring>   vVersionFolders;
-    DWORD                       dwPosition;
+    DWORD                       dwPosition = 0;
     DWORD                       dwPathLength = MAX_PATH;
     DWORD                       dwDotnetLength = 0;
+    DWORD                       dwBinaryType = 0;
     BOOL                        fFound = FALSE;
 
     // Convert the process path an absolute path.
@@ -146,9 +147,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
             dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
             if (dwDotnetLength == 0)
             {
-                hr = GetLastError();
-                // Could not find dotnet
-                goto Finished;
+                // Could not find dotnet on Path, try looking at program files and program files x86 based on bitness
+                break;
             }
             else if (dwDotnetLength == dwPathLength)
             {
@@ -161,7 +161,51 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
             }
             else
             {
+                // We also want to check if the dotnet we are going to load matches the 
                 fFound = TRUE;
+            }
+        }
+        // Also verify
+        BOOL bitness = FALSE;
+        BOOL is64Bit;
+        BOOL result = IsWow64Process(GetCurrentProcess(), _Out_ &bitness);
+        if ( !result )
+        {
+            // failure, error.
+        }
+        if ( bitness )
+        {
+            // 32 bit mode
+            is64Bit = FALSE;
+        }
+        else
+        {
+            SYSTEM_INFO systemInfo;
+            GetNativeSystemInfo( &systemInfo );
+            is64Bit = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+        }
+        if ( GetBinaryTypeW( struExeLocation.QueryStr(), &dwBinaryType ) )
+        {
+            // failure
+        }
+        
+
+        if (!(fFound && is64Bit == (dwBinaryType == SCS_64BIT_BINARY)))
+        {
+            // Try finding dotnet exe based on the bitness of the current running process
+            // We can use the ProgramFiles env var to direct us to either
+            DWORD retSize = GetEnvironmentVariable( L"ProgramFiles", struExeLocation.QueryStr(), dwPathLength );
+            if (retSize == 0)
+            {
+                // error
+            }
+            if (FAILED(struExeLocation.SyncWithBuffer()) || FAILED(struExeLocation.Append(L"\\dotnet\\dotnet.exe")))
+            {
+                // error
+            }
+            if (!UTILITY::CheckIfFileExists(struExeLocation.QueryStr()))
+            {
+                // Error
             }
         }
     }
