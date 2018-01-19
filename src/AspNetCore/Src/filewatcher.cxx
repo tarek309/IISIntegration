@@ -14,14 +14,34 @@ FILE_WATCHER::~FILE_WATCHER()
 {
     if (m_hChangeNotificationThread != NULL)
     {
-        DWORD dwRetryCounter = 10;
+        DWORD dwRetryCounter = 20;      // totally wait for 1s
+        DWORD dwExitCode = STILL_ACTIVE;
 
         // signal the file watch thread to exit
         PostQueuedCompletionStatus(m_hCompletionPort, 0, FILE_WATCHER_SHUTDOWN_KEY, NULL);
         while (!m_fThreadExit && dwRetryCounter > 0)
         {
-            Sleep(10); // totally wait for 100 ms
+            if (GetExitCodeThread(m_hChangeNotificationThread, &dwExitCode))
+            {
+                if (dwExitCode == STILL_ACTIVE)
+                {
+                    // the file watcher thread will set m_fThreadExit before exit
+                    WaitForSingleObject(m_hChangeNotificationThread, 50);
+                }
+            }
+            else
+            {
+                // fail to get thread status
+                // call terminitethread
+                TerminateThread(m_hChangeNotificationThread, 1);
+                m_fThreadExit = TRUE;
+            }
             dwRetryCounter--;
+        }
+
+        if (!m_fThreadExit)
+        {
+            TerminateThread(m_hChangeNotificationThread, 1);
         }
 
         CloseHandle(m_hChangeNotificationThread);
@@ -136,7 +156,7 @@ Win32 error
     }
 
     pFileMonitor->m_fThreadExit = TRUE;
-    return 0;
+    ExitThread(0);
 }
 
 VOID
