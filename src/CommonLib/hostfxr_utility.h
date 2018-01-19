@@ -16,7 +16,8 @@ public:
     static
     HRESULT
     GetHostFxrParameters(
-        ASPNETCORE_CONFIG *pConfig
+        ASPNETCORE_CONFIG *pConfig,
+        HANDLE             hEventLog
     );
 
 private:
@@ -24,7 +25,9 @@ private:
     HRESULT
     GetStandaloneHostfxrParameters(
         PCWSTR             pStruExePath,
-        ASPNETCORE_CONFIG *pConfig
+        ASPNETCORE_CONFIG *pConfig,
+        HANDLE             hEventLog
+
     );
 
     static
@@ -32,7 +35,8 @@ private:
     SetHostFxrArguments(
         PCWSTR              struArguments,
         PCWSTR              pStruExePath,
-        ASPNETCORE_CONFIG  *pConfig
+        ASPNETCORE_CONFIG  *pConfig,
+        HANDLE              hEventLog
     );
 };
 

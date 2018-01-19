@@ -110,6 +110,13 @@ Language=English
 %1
 .
 
+Messageid=1014
+SymbolicName=ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP
+Language=English
+%1
+.
+
+
 ;
 ;#endif     // _ASPNETCORE_MODULE_MSG_H_
 ;

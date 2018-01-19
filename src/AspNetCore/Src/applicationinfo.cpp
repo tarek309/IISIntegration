@@ -170,7 +170,7 @@ APPLICATION_INFO::EnsureApplicationCreated()
 
     if ( m_pConfiguration->QueryHostingModel() == APP_HOSTING_MODEL::HOSTING_IN_PROCESS )
     {
-        if ( FAILED( hr = HOSTFXR_UTILITY::GetHostFxrParameters( m_pConfiguration ) ) )
+        if ( FAILED( hr = HOSTFXR_UTILITY::GetHostFxrParameters( m_pConfiguration, g_hEventLog ) ) )
         {
             goto Finished;
         }

@@ -27,3 +27,4 @@
 #define ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_MSG           L"Application '%s' with physical root '%s' hit unexpected managed background thread exit, ErrorCode = '0x%x."
 #define ASPNETCORE_EVENT_RECYCLE_APPOFFLINE_MSG              L"Application '%s' is recycled due to app_offline file was detected."
 #define ASPNETCORE_EVENT_MODULE_DISABLED_MSG                 L"AspNetCore Module is disabled"
+#define ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP_MSG    L"Application '%s' was compiled for .NET Framework. Please compile for .NET core to run the inprocess application."
