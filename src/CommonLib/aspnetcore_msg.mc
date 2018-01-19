@@ -116,6 +116,23 @@ Language=English
 %1
 .
 
+Messageid=1015
+SymbolicName=ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING
+Language=English
+%1
+.
+
+Messageid=1016
+SymbolicName=ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND
+Language=English
+%1
+.
+
+Messageid=1017
+SymbolicName=ASPNETCORE_EVENT_HOSTFXR_DLL_NOT_FOUND
+Language=English
+%1
+.
 
 ;
 ;#endif     // _ASPNETCORE_MODULE_MSG_H_

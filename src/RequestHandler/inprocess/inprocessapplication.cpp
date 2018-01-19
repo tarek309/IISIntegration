@@ -591,7 +591,6 @@ IN_PROCESS_APPLICATION::RunDotnetApplication(DWORD argc, CONST PCWSTR* argv, hos
     }
     __except (FilterException(GetExceptionCode(), GetExceptionInformation()))
     {
-        // TODO Log error message here.
         hr = E_APPLICATION_ACTIVATION_EXEC_FAILURE;
     }
     return hr;

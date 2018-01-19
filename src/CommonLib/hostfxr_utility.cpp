@@ -78,7 +78,8 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
 
             if ( SUCCEEDED( strEventMsg.SafeSnwprintf(
                 ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP_MSG,
-                pConfig->QueryApplicationPath()->QueryStr() ) ) )
+                pConfig->QueryApplicationPath()->QueryStr(),
+                hr) ) )
             {
                 UTILITY::LogEvent( hEventLog,
                                    EVENTLOG_ERROR_TYPE,
@@ -135,6 +136,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     STRU                        struExeLocation;
     STRU                        struHostFxrSearchExpression;
     STRU                        struHighestDotnetVersion;
+    STRU                        struEventMsg;
     std::vector<std::wstring>   vVersionFolders;
     DWORD                       dwPosition;
     DWORD                       dwPathLength = MAX_PATH;
@@ -174,6 +176,16 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
             {
                 hr = GetLastError();
                 // Could not find dotnet
+                if (SUCCEEDED(struEventMsg.SafeSnwprintf(
+                    ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING_MSG,
+                    pConfig->QueryApplicationPath()->QueryStr(),
+                    hr)))
+                {
+                    UTILITY::LogEvent(hEventLog,
+                        EVENTLOG_ERROR_TYPE,
+                        ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING,
+                        struEventMsg.QueryStr());
+                }
                 goto Finished;
             }
             else if (dwDotnetLength == dwPathLength)
@@ -221,8 +233,17 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     if (!UTILITY::DirectoryExists(&struHostFxrPath))
     {
-        // error, not found in folder
         hr = ERROR_BAD_ENVIRONMENT;
+        if (SUCCEEDED(struEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND_MSG,
+            struHostFxrPath.QueryStr(),
+            hr)))
+        {
+            UTILITY::LogEvent(hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND,
+                struEventMsg.QueryStr());
+        }
         goto Finished;
     }
 
@@ -245,7 +266,16 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     if (vVersionFolders.size() == 0)
     {
-        // no core framework was found
+        if (SUCCEEDED(struEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND_MSG,
+            struHostFxrPath.QueryStr(),
+            hr)))
+        {
+            UTILITY::LogEvent(hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND,
+                struEventMsg.QueryStr());
+        }
         hr = ERROR_BAD_ENVIRONMENT;
         goto Finished;
     }
@@ -265,7 +295,18 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     if (!UTILITY::CheckIfFileExists(struHostFxrPath.QueryStr()))
     {
+        // ASPNETCORE_EVENT_HOSTFXR_DLL_NOT_FOUND_MSG
         hr = ERROR_FILE_INVALID;
+        if (SUCCEEDED(struEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_HOSTFXR_DLL_NOT_FOUND_MSG,
+            struHostFxrPath.QueryStr(),
+            hr)))
+        {
+            UTILITY::LogEvent(hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_HOSTFXR_DLL_NOT_FOUND,
+                struEventMsg.QueryStr());
+        }
         goto Finished;
     }
 
