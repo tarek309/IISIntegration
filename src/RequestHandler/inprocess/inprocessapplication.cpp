@@ -108,7 +108,7 @@ IN_PROCESS_APPLICATION::Recycle(
         // delete empty log file, if logging is not enabled
         handle = FindFirstFile(m_struLogFilePath.QueryStr(), &fileData);
         if (handle != INVALID_HANDLE_VALUE &&
-            fileData.nFileSizeHigh &&
+            fileData.nFileSizeHigh == 0 &&
             fileData.nFileSizeLow == 0) // skip check of nFileSizeHigh
         {
             FindClose(handle);
