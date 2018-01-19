@@ -25,7 +25,7 @@ HOSTFXR_UTILITY::~HOSTFXR_UTILITY()
 //
 HRESULT
 HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
-    PCWSTR              pwzExePath,
+    PCWSTR              pwzExeAbsolutePath, // includes .exe file extension.
     ASPNETCORE_CONFIG  *pConfig,
     HANDLE              hEventLog
 
@@ -40,7 +40,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
     DWORD               dwPosition;
 
     // Obtain the app name from the processPath section.
-    if ( FAILED( hr = struDllPath.Copy( pwzExePath ) ) )
+    if ( FAILED( hr = struDllPath.Copy( pwzExeAbsolutePath ) ) )
     {
         goto Finished;
     }
@@ -113,7 +113,7 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         goto Finished;
     }
 
-    if (FAILED(hr = SetHostFxrArguments(struArguments.QueryStr(), pwzExePath, pConfig, hEventLog)))
+    if (FAILED(hr = SetHostFxrArguments(struArguments.QueryStr(), pwzExeAbsolutePath, pConfig, hEventLog)))
     {
         goto Finished;
     }
