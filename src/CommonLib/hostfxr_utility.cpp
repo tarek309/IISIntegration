@@ -28,7 +28,6 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
     PCWSTR              pwzExeAbsolutePath, // includes .exe file extension.
     ASPNETCORE_CONFIG  *pConfig,
     HANDLE              hEventLog
-
 )
 {
     HRESULT             hr = S_OK;
@@ -127,7 +126,6 @@ HRESULT
 HOSTFXR_UTILITY::GetHostFxrParameters(
     ASPNETCORE_CONFIG  *pConfig,
     HANDLE              hEventLog
-
 )
 {
     HRESULT                     hr = S_OK;
