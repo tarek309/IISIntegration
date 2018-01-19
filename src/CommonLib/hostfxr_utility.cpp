@@ -77,12 +77,12 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
         {
 
             if ( SUCCEEDED( strEventMsg.SafeSnwprintf(
-                ASPNETCORE_EVENT_DUPLICATED_INPROCESS_APP_MSG,
+                ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP_MSG,
                 pConfig->QueryApplicationPath()->QueryStr() ) ) )
             {
                 UTILITY::LogEvent( hEventLog,
                                    EVENTLOG_ERROR_TYPE,
-                                   ASPNETCORE_EVENT_DUPLICATED_INPROCESS_APP,
+                                   ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP,
                                    strEventMsg.QueryStr() );
             }
             hr = E_APPLICATION_ACTIVATION_EXEC_FAILURE;
@@ -158,6 +158,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
         // Check if hostfxr is in this folder, if it is, we are a standalone application,
         // else we assume we received an absolute path to dotnet.exe
         hr = GetStandaloneHostfxrParameters( struExeLocation.QueryStr(), pConfig, hEventLog );
+        goto Finished;
     }
     else
     {
