@@ -134,6 +134,13 @@ Language=English
 %1
 .
 
+Messageid=1018
+SymbolicName=ASPNETCORE_EVENT_INPROCESS_THREAD_EXCEPTION
+Language=English
+%1
+.
+
+
 ;
 ;#endif     // _ASPNETCORE_MODULE_MSG_H_
 ;

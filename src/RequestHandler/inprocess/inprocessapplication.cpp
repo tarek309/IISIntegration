@@ -550,24 +550,39 @@ Finished:
     //
     // this method is called by the background thread and should never exit unless shutdown
     //
+    if (m_ProcessExitCode)
+    {
+        hr = E_APPLICATION_EXITING;
+
+        if (SUCCEEDED(strEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_MSG,
+            m_pConfig->QueryApplicationPath()->QueryStr(),
+            m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),
+            m_ProcessExitCode)))
+        {
+            UTILITY::LogEvent(g_hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT,
+                strEventMsg.QueryStr());
+        }
+    }
+    else if (FAILED(hr) && hr != ERROR_BAD_ENVIRONMENT)
+    {
+        if (SUCCEEDED(strEventMsg.SafeSnwprintf(
+            ASPNETCORE_EVENT_INPROCESS_THREAD_EXCEPTION_MSG,
+            m_pConfig->QueryApplicationPath()->QueryStr(),
+            m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),
+            m_ProcessExitCode)))
+        {
+            UTILITY::LogEvent(g_hEventLog,
+                EVENTLOG_ERROR_TYPE,
+                ASPNETCORE_EVENT_INPROCESS_THREAD_EXCEPTION,
+                strEventMsg.QueryStr());
+        }
+    }
     if (!m_fRecycleProcessCalled)
     {
-        if (m_ProcessExitCode)
-        {
-            hr = E_APPLICATION_EXITING;
-
-            if (SUCCEEDED(strEventMsg.SafeSnwprintf(
-                ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_MSG,
-                m_pConfig->QueryApplicationPath()->QueryStr(),
-                m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),
-                m_ProcessExitCode)))
-            {
-                UTILITY::LogEvent(g_hEventLog,
-                    EVENTLOG_ERROR_TYPE,
-                    ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT,
-                    strEventMsg.QueryStr());
-            }
-        }
+        
         // error. the thread exits after application started
         // Question: should we shutdown current worker process or keep the application in failure state?
         // for now, we reccylce to keep the same behavior as that of out-of-process
@@ -589,7 +604,6 @@ HRESULT
 IN_PROCESS_APPLICATION::RunDotnetApplication(DWORD argc, CONST PCWSTR* argv, hostfxr_main_fn pProc)
 {
     HRESULT hr   = S_OK;
-
     __try
     {
         m_ProcessExitCode = pProc(argc, argv);
