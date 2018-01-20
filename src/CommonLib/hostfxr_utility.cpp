@@ -176,7 +176,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
             dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
             if (dwDotnetLength == 0)
             {
-                hr = GetLastError();
+                hr = HRESULT_FROM_WIN32(GetLastError());
                 // Could not find dotnet
                 if (SUCCEEDED(struEventMsg.SafeSnwprintf(
                     ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING_MSG,
@@ -268,6 +268,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     if (vVersionFolders.size() == 0)
     {
+        hr = ERROR_BAD_ENVIRONMENT;
         if (SUCCEEDED(struEventMsg.SafeSnwprintf(
             ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND_MSG,
             struHostFxrPath.QueryStr(),
@@ -278,7 +279,6 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
                 ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND,
                 struEventMsg.QueryStr());
         }
-        hr = ERROR_BAD_ENVIRONMENT;
         goto Finished;
     }
 

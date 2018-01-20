@@ -514,6 +514,7 @@ IN_PROCESS_APPLICATION::ExecuteApplication(
     HRESULT             hr = S_OK;
     HMODULE             hModule;
     hostfxr_main_fn     pProc;
+    STRU                strEventMsg;
 
     // should be a redudant call here, but we will be safe and call it twice.
     // TODO AV here on m_pHostFxrParameters being null
@@ -543,7 +544,7 @@ IN_PROCESS_APPLICATION::ExecuteApplication(
     // set the callbacks
     s_Application = this;
 
-    RunDotnetApplication(m_pConfig->QueryHostFxrArgCount(), m_pConfig->QueryHostFxrArguments(), pProc);
+    hr = RunDotnetApplication(m_pConfig->QueryHostFxrArgCount(), m_pConfig->QueryHostFxrArguments(), pProc);
 
 Finished:
     //
@@ -551,19 +552,22 @@ Finished:
     //
     if (!m_fRecycleProcessCalled)
     {
-        STRU                    strEventMsg;
-        if (SUCCEEDED(strEventMsg.SafeSnwprintf(
+        if (m_ProcessExitCode)
+        {
+            hr = E_APPLICATION_EXITING;
+
+            if (SUCCEEDED(strEventMsg.SafeSnwprintf(
                 ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT_MSG,
                 m_pConfig->QueryApplicationPath()->QueryStr(),
                 m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),
                 m_ProcessExitCode)))
-        {
-            UTILITY::LogEvent(g_hEventLog,
-                EVENTLOG_ERROR_TYPE,
-                ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT,
-                strEventMsg.QueryStr());
+            {
+                UTILITY::LogEvent(g_hEventLog,
+                    EVENTLOG_ERROR_TYPE,
+                    ASPNETCORE_EVENT_INPROCESS_THREAD_EXIT,
+                    strEventMsg.QueryStr());
+            }
         }
-       
         // error. the thread exits after application started
         // Question: should we shutdown current worker process or keep the application in failure state?
         // for now, we reccylce to keep the same behavior as that of out-of-process
@@ -584,15 +588,17 @@ Finished:
 HRESULT
 IN_PROCESS_APPLICATION::RunDotnetApplication(DWORD argc, CONST PCWSTR* argv, hostfxr_main_fn pProc)
 {
-    HRESULT hr = S_OK;
+    HRESULT hr   = S_OK;
+
     __try
     {
         m_ProcessExitCode = pProc(argc, argv);
     }
     __except (FilterException(GetExceptionCode(), GetExceptionInformation()))
     {
-        hr = E_APPLICATION_ACTIVATION_EXEC_FAILURE;
+        hr = HRESULT_FROM_WIN32(GetExceptionCode());
     }
+
     return hr;
 }
 
@@ -601,6 +607,6 @@ INT
 IN_PROCESS_APPLICATION::FilterException(unsigned int, struct _EXCEPTION_POINTERS*)
 {
     // We assume that any exception is a failure as the applicaiton didn't start or there was a startup error.
-    // TODO, log error based on exception code.
+
     return EXCEPTION_EXECUTE_HANDLER;
 }

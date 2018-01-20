@@ -31,3 +31,4 @@
 #define ASPNETCORE_EVENT_PORTABLE_APP_DOTNET_MISSING_MSG     L"Could not find dotnet.exe on the system PATH environment variable for portable application '%s'. Check that a valid path to dotnet is on the PATH and the bitness of dotnet matches the bitness of the IIS worker process. ErrorCode = '0x%x'."
 #define ASPNETCORE_EVENT_HOSTFXR_DIRECTORY_NOT_FOUND_MSG     L"Could not find the hostfxr directory '%s' in the dotnet directory. ErrorCode = '0x%x'."
 #define ASPNETCORE_EVENT_HOSTFXR_DLL_NOT_FOUND_MSG           L"Could not find hostfxr.dll in '%s'. ErrorCode = '0x%x'."
+#define ASPNETCORE_EVENT_INPROCESS_THREAD_EXCEPTION_MSG      L"Application '%s' with physical root '%s' hit unexpected managed exception, ErrorCode = '0x%x. Please check the stderr logs for more information."
