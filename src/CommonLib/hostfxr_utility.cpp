@@ -66,27 +66,31 @@ HOSTFXR_UTILITY::GetStandaloneHostfxrParameters(
     if ( !UTILITY::CheckIfFileExists( struHostFxrPath.QueryStr() ) )
     {
         // Most likely a full framework app.
-        // Check that the runtime config file doesn't exist in the folder as another heuristic. 
-        if ( FAILED( hr = struRuntimeConfigLocation.Copy( struDllPath ) )
-             || FAILED( hr = struRuntimeConfigLocation.Append( L".runtimeconfig.json" ) ) )
+        // Check that the runtime config file doesn't exist in the folder as another heuristic.
+        if (FAILED(hr = struRuntimeConfigLocation.Copy(struDllPath)) ||
+              FAILED(hr = struRuntimeConfigLocation.Append( L".runtimeconfig.json" )))
         {
             goto Finished;
         }
-        if ( !UTILITY::CheckIfFileExists( struRuntimeConfigLocation.QueryStr() ) )
+        if (!UTILITY::CheckIfFileExists(struRuntimeConfigLocation.QueryStr()))
         {
 
-            if ( SUCCEEDED( strEventMsg.SafeSnwprintf(
+            hr = E_APPLICATION_ACTIVATION_EXEC_FAILURE;
+            if (SUCCEEDED(strEventMsg.SafeSnwprintf(
                 ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP_MSG,
                 pConfig->QueryApplicationPath()->QueryStr(),
-                hr) ) )
+                hr)))
             {
                 UTILITY::LogEvent( hEventLog,
                                    EVENTLOG_ERROR_TYPE,
                                    ASPNETCORE_EVENT_INPROCESS_FULL_FRAMEWORK_APP,
                                    strEventMsg.QueryStr() );
             }
-            hr = E_APPLICATION_ACTIVATION_EXEC_FAILURE;
-            goto Finished;
+        }
+        else
+        {
+            // If a runtime config file does exist, report a file not found on the app.exe
+            hr = ERROR_FILE_NOT_FOUND;
         }
 
         goto Finished;
