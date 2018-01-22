@@ -35,8 +35,9 @@ private:
         ASPNETCORE_CONFIG  *pConfig
     );
 
+
     static
         HRESULT
-        CallWhere();
+        CallWhere(STRU * struDotnetLocation);
 };
 

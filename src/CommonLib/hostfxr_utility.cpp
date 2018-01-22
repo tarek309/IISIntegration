@@ -133,13 +133,14 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     }
     else
     {
-        HOSTFXR_UTILITY::CallWhere();
+        if (FAILED(hr = HOSTFXR_UTILITY::CallWhere(&struExeLocation))) {
+            goto Finished;
+        }
 
-        
     }
 
-    if (FAILED(hr = struExeLocation.SyncWithBuffer())
-        || FAILED(hr = struHostFxrPath.Copy(struExeLocation)))
+    if (FAILED(hr = struExeLocation.SyncWithBuffer()) ||
+        FAILED(hr = struHostFxrPath.Copy(struExeLocation)))
     {
         goto Finished;
     }
@@ -153,8 +154,8 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
 
     struHostFxrPath.QueryStr()[dwPosition] = L'\0';
 
-    if (FAILED(hr = struHostFxrPath.SyncWithBuffer())
-        || FAILED(hr = struHostFxrPath.Append(L"\\")))
+    if (FAILED(hr = struHostFxrPath.SyncWithBuffer()) ||
+        FAILED(hr = struHostFxrPath.Append(L"\\")))
     {
         goto Finished;
     }
@@ -343,39 +344,51 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
 }
 
 HRESULT
-HOSTFXR_UTILITY::CallWhere()
+HOSTFXR_UTILITY::CallWhere(_Out_ STRU* struDotnetLocation)
 {
     HRESULT hr = S_OK;
     STARTUPINFOW            startupInfo = { 0 };
     PROCESS_INFORMATION     processInformation = { 0 };
     STRU struTempPath;
     SECURITY_ATTRIBUTES sa;
-    HANDLE hFile;
+    HANDLE hFile = NULL;
     DWORD exitCode;
     LPWSTR dotnetName;
     DWORD  numBytesRead;
     BOOL result;
     DWORD dwRetVal;
     STRU struTempFilePath;
-    CHAR dotnetLocations[4000];
-    STRA dotnetLocationsString;
+    CHAR dotnetLocations[4000] = { 0 };
+    STRU dotnetLocationsString;
     startupInfo.cb = sizeof(startupInfo);
+    INT index = 0;
+    INT prevIndex = 0;
+    STRU dotnetSubstring;
+    BOOL fIsWow64Process;
+    BOOL fIsCurrentProcess64Bit;
+    DWORD dwBinaryType;
+    BOOL fFound = FALSE;
+    DWORD dwfilePointer;
 
-    if (FAILED(hr = struTempPath.Resize(MAX_PATH))) {
+    if (FAILED(hr = struTempPath.Resize(MAX_PATH)))
+    {
         goto Finished;
     }
     // Get a temporary path/file to write the results of where.exe
     dwRetVal = GetTempPathW(MAX_PATH, struTempPath.QueryStr());
-    if (dwRetVal == 0 || dwRetVal > MAX_PATH) {
+    if (dwRetVal == 0 || dwRetVal > MAX_PATH)
+    {
         hr = ERROR_PATH_NOT_FOUND;
         goto Finished;
     }
 
-    if (FAILED(hr = struTempPath.SyncWithBuffer())) {
+    if (FAILED(hr = struTempPath.SyncWithBuffer()))
+    {
         goto Finished;
     }
 
-    if (FAILED(hr = struTempFilePath.Resize(MAX_PATH + 50))) {
+    if (FAILED(hr = struTempFilePath.Resize(MAX_PATH + 50)))
+    {
         goto Finished;
     }
     dwRetVal = GetTempFileNameW(struTempPath.QueryStr(),
@@ -383,7 +396,8 @@ HOSTFXR_UTILITY::CallWhere()
         0,
         struTempFilePath.QueryStr());
 
-    if (FAILED(hr = struTempFilePath.SyncWithBuffer())) {
+    if (FAILED(hr = struTempFilePath.SyncWithBuffer()))
+    {
         goto Finished;
     }
 
@@ -392,13 +406,17 @@ HOSTFXR_UTILITY::CallWhere()
     sa.bInheritHandle = TRUE;
 
     hFile = CreateFile(struTempFilePath.QueryStr(),               // file name 
-        FILE_APPEND_DATA,          // open for reading 
+        GENERIC_ALL,
         FILE_SHARE_WRITE | FILE_SHARE_READ,
         &sa,                  // default security 
         OPEN_ALWAYS,         // existing file only 
         FILE_ATTRIBUTE_NORMAL, // normal file 
         NULL);                 // no template 
 
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
+        hr = HRESULT_FROM_WIN32(GetLastError());
+    }
     startupInfo.dwFlags |= STARTF_USESTDHANDLES;
     startupInfo.hStdOutput = hFile;
     startupInfo.hStdError = hFile;
@@ -417,7 +435,8 @@ HOSTFXR_UTILITY::CallWhere()
         &processInformation
     );
 
-    if (!result) {
+    if (!result)
+    {
         printf("CreateProcess failed (%d).\n", GetLastError());
         return 1;
     }
@@ -431,16 +450,78 @@ HOSTFXR_UTILITY::CallWhere()
 
     SysFreeString(dotnetName);
 
-    if (!ReadFile(hFile, dotnetLocations, 4000, &numBytesRead, NULL)) {
+    dwfilePointer = SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
+    if (dwfilePointer == INVALID_SET_FILE_POINTER)
+    {
+        hr = ERROR_FILE_INVALID;
         goto Finished;
     }
-    dotnetLocationsString.Copy(dotnetLocations);
+
+    if (!ReadFile(hFile, dotnetLocations, 4096, &numBytesRead, NULL))
+    {
+        goto Finished;
+    }
+    dotnetLocationsString.CopyA(dotnetLocations, numBytesRead);
 
     // Go through each line of the file, check if the path is valid.
     // Log which dotnet exe we are using to stdout before invoking dotnet.exe
     // Add good error message saying if this dotnet isn't the one you intended,
     // make sure the bitness matches.
+    if (!IsWow64Process(GetCurrentProcess(), &fIsWow64Process))
+    {
+        // Calling IsWow64Process failed
+        hr = HRESULT_FROM_WIN32(GetLastError());
+        goto Finished;
+    }
+    if (fIsWow64Process)
+    {
+        // 32 bit mode
+        fIsCurrentProcess64Bit = FALSE;
+    }
+    else
+    {
+        SYSTEM_INFO systemInfo;
+        GetNativeSystemInfo(&systemInfo);
+        fIsCurrentProcess64Bit = systemInfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
+    }
 
+    while (!fFound)
+    {
+        //
+        index = dotnetLocationsString.IndexOf(L"\r\n", prevIndex);
+        if (index == -1)
+        {
+            break;
+        }
+        dotnetSubstring.Copy(dotnetLocationsString.QueryStr(), index - prevIndex);
+        prevIndex = index;
+
+        if (!GetBinaryTypeW(dotnetSubstring.QueryStr(), &dwBinaryType))
+        {
+            hr = HRESULT_FROM_WIN32(GetLastError());
+            goto Finished;
+        }
+        if (fIsCurrentProcess64Bit == (dwBinaryType == SCS_64BIT_BINARY)) {
+            // Found a valid dotnet.
+            struDotnetLocation->Copy(dotnetSubstring);
+            fFound = TRUE;
+        }
+    }
+
+    if (!fFound)
+    {
+        hr = ERROR_FILE_NOT_FOUND;
+        goto Finished;
+    }
 Finished:
+
+    if (hFile != NULL)
+    {
+        if (!CloseHandle(hFile)) 
+        {
+            // TODO log warning.
+        }
+    }
+
     return hr;
 }
