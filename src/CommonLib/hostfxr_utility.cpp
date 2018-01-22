@@ -96,9 +96,6 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     STRU                        struHighestDotnetVersion;
     std::vector<std::wstring>   vVersionFolders;
     DWORD                       dwPosition;
-    DWORD                       dwPathLength = MAX_PATH;
-    DWORD                       dwDotnetLength = 0;
-    BOOL                        fFound = FALSE;
 
     // Convert the process path an absolute path.
     hr = UTILITY::ConvertPathToFullPath(
@@ -136,34 +133,9 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     }
     else
     {
-        if (FAILED(hr = struExeLocation.Resize(MAX_PATH)))
-        {
-            goto Finished;
-        }
+        HOSTFXR_UTILITY::CallWhere();
 
-        while (!fFound)
-        {
-            dwDotnetLength = SearchPath(NULL, L"dotnet", L".exe", dwPathLength, struExeLocation.QueryStr(), NULL);
-            if (dwDotnetLength == 0)
-            {
-                hr = GetLastError();
-                // Could not find dotnet
-                goto Finished;
-            }
-            else if (dwDotnetLength == dwPathLength)
-            {
-                // Increase size
-                dwPathLength *= 2;
-                if (FAILED(hr = struExeLocation.Resize(dwPathLength)))
-                {
-                    goto Finished;
-                }
-            }
-            else
-            {
-                fFound = TRUE;
-            }
-        }
+        
     }
 
     if (FAILED(hr = struExeLocation.SyncWithBuffer())
@@ -350,7 +322,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     pConfig->SetHostFxrArguments(argc + 2, argv);
     goto Finished;
 
-Failure:
+    Failure:
     if (argv != NULL)
     {
         for (DWORD i = 0; i < dwArgsProcessed; i++)
@@ -361,11 +333,114 @@ Failure:
 
     delete[] argv;
 
-Finished:
+    Finished:
     if (pwzArgs != NULL)
     {
         LocalFree(pwzArgs);
         DBG_ASSERT(pwzArgs == NULL);
     }
+    return hr;
+}
+
+HRESULT
+HOSTFXR_UTILITY::CallWhere()
+{
+    HRESULT hr = S_OK;
+    STARTUPINFOW            startupInfo = { 0 };
+    PROCESS_INFORMATION     processInformation = { 0 };
+    STRU struTempPath;
+    SECURITY_ATTRIBUTES sa;
+    HANDLE hFile;
+    DWORD exitCode;
+    LPWSTR dotnetName;
+    DWORD  numBytesRead;
+    BOOL result;
+    DWORD dwRetVal;
+    STRU struTempFilePath;
+    CHAR dotnetLocations[4000];
+    STRA dotnetLocationsString;
+    startupInfo.cb = sizeof(startupInfo);
+
+    if (FAILED(hr = struTempPath.Resize(MAX_PATH))) {
+        goto Finished;
+    }
+    // Get a temporary path/file to write the results of where.exe
+    dwRetVal = GetTempPathW(MAX_PATH, struTempPath.QueryStr());
+    if (dwRetVal == 0 || dwRetVal > MAX_PATH) {
+        hr = ERROR_PATH_NOT_FOUND;
+        goto Finished;
+    }
+
+    if (FAILED(hr = struTempPath.SyncWithBuffer())) {
+        goto Finished;
+    }
+
+    if (FAILED(hr = struTempFilePath.Resize(MAX_PATH + 50))) {
+        goto Finished;
+    }
+    dwRetVal = GetTempFileNameW(struTempPath.QueryStr(),
+        L"ANCM_WHERE",
+        0,
+        struTempFilePath.QueryStr());
+
+    if (FAILED(hr = struTempFilePath.SyncWithBuffer())) {
+        goto Finished;
+    }
+
+    sa.nLength = sizeof(sa);
+    sa.lpSecurityDescriptor = NULL;
+    sa.bInheritHandle = TRUE;
+
+    hFile = CreateFile(struTempFilePath.QueryStr(),               // file name 
+        FILE_APPEND_DATA,          // open for reading 
+        FILE_SHARE_WRITE | FILE_SHARE_READ,
+        &sa,                  // default security 
+        OPEN_ALWAYS,         // existing file only 
+        FILE_ATTRIBUTE_NORMAL, // normal file 
+        NULL);                 // no template 
+
+    startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+    startupInfo.hStdOutput = hFile;
+    startupInfo.hStdError = hFile;
+
+    dotnetName = SysAllocString(L"\"C:\\Windows\\System32\\where.exe\" dotnet.exe");
+
+    result = CreateProcessW(NULL,
+        dotnetName,
+        NULL,
+        NULL,
+        TRUE,
+        CREATE_NO_WINDOW,
+        NULL,
+        NULL,
+        &startupInfo,
+        &processInformation
+    );
+
+    if (!result) {
+        printf("CreateProcess failed (%d).\n", GetLastError());
+        return 1;
+    }
+
+    WaitForSingleObject(processInformation.hProcess, 1000); // TODO set this to be timeout based on config. 
+
+    result = GetExitCodeProcess(processInformation.hProcess, &exitCode);
+
+    CloseHandle(processInformation.hProcess);
+    CloseHandle(processInformation.hThread);
+
+    SysFreeString(dotnetName);
+
+    if (!ReadFile(hFile, dotnetLocations, 4000, &numBytesRead, NULL)) {
+        goto Finished;
+    }
+    dotnetLocationsString.Copy(dotnetLocations);
+
+    // Go through each line of the file, check if the path is valid.
+    // Log which dotnet exe we are using to stdout before invoking dotnet.exe
+    // Add good error message saying if this dotnet isn't the one you intended,
+    // make sure the bitness matches.
+
+Finished:
     return hr;
 }

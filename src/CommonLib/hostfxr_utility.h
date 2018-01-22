@@ -34,5 +34,9 @@ private:
         PCWSTR              pStruExePath,
         ASPNETCORE_CONFIG  *pConfig
     );
+
+    static
+        HRESULT
+        CallWhere();
 };
 
