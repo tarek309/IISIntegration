@@ -38,6 +38,6 @@ private:
 
     static
         HRESULT
-        CallWhere(STRU * struDotnetLocation);
+        FindDotnetExePath(ASPNETCORE_CONFIG* pConfig, STRU * struDotnetLocation);
 };
 

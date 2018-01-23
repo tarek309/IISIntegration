@@ -133,7 +133,7 @@ HOSTFXR_UTILITY::GetHostFxrParameters(
     }
     else
     {
-        if (FAILED(hr = HOSTFXR_UTILITY::CallWhere(&struExeLocation))) {
+        if (FAILED(hr = HOSTFXR_UTILITY::FindDotnetExePath(pConfig, &struExeLocation))) {
             goto Finished;
         }
 
@@ -342,89 +342,58 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     }
     return hr;
 }
+//
+// Invoke where.exe to find the location of dotnet.exe
+// Copies contents of dotnet.exe to a temp file
+// Respects path ordering.
 
 HRESULT
-HOSTFXR_UTILITY::CallWhere(_Out_ STRU* struDotnetLocation)
+HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* struDotnetPath)
 {
-    HRESULT hr = S_OK;
-    STARTUPINFOW            startupInfo = { 0 };
-    PROCESS_INFORMATION     processInformation = { 0 };
-    STRU struTempPath;
-    SECURITY_ATTRIBUTES sa;
-    HANDLE hFile = NULL;
-    DWORD exitCode;
-    LPWSTR dotnetName;
-    DWORD  numBytesRead;
-    BOOL result;
-    DWORD dwRetVal;
-    STRU struTempFilePath;
-    CHAR dotnetLocations[4000] = { 0 };
-    STRU dotnetLocationsString;
-    startupInfo.cb = sizeof(startupInfo);
-    INT index = 0;
-    INT prevIndex = 0;
-    STRU dotnetSubstring;
-    BOOL fIsWow64Process;
-    BOOL fIsCurrentProcess64Bit;
-    DWORD dwBinaryType;
-    BOOL fFound = FALSE;
-    DWORD dwfilePointer;
+    HRESULT             hr = S_OK;
+    HANDLE              hFile = NULL;
+    STARTUPINFOW        startupInfo = { 0 };
+    PROCESS_INFORMATION processInformation = { 0 };
+    SECURITY_ATTRIBUTES securityAttributes;
+    STRU                struDotnetSubstring;
+    STRU                struDotnetLocationsString;
+    LPWSTR              pwzDotnetName = NULL;
+    DWORD               dwExitCode;
+    DWORD               dwNumBytesRead;
+    DWORD               dwFilePointer;
+    DWORD               dwBinaryType;
+    INT                 index = 0;
+    INT                 prevIndex = 0;
+    BOOL                fResult = FALSE;
+    BOOL                fIsWow64Process;
+    BOOL                fIsCurrentProcess64Bit;
+    BOOL                fFound = FALSE;
+    CHAR                pzFileContents[4096];
+    HANDLE              hStdOutReadPipe = NULL;
+    HANDLE              hStdOutWritePipe = NULL;
 
-    if (FAILED(hr = struTempPath.Resize(MAX_PATH)))
-    {
-        goto Finished;
-    }
-    // Get a temporary path/file to write the results of where.exe
-    dwRetVal = GetTempPathW(MAX_PATH, struTempPath.QueryStr());
-    if (dwRetVal == 0 || dwRetVal > MAX_PATH)
-    {
-        hr = ERROR_PATH_NOT_FOUND;
-        goto Finished;
-    }
+    securityAttributes.nLength = sizeof(securityAttributes);
+    securityAttributes.lpSecurityDescriptor = NULL;
+    securityAttributes.bInheritHandle = TRUE;
 
-    if (FAILED(hr = struTempPath.SyncWithBuffer()))
-    {
-        goto Finished;
-    }
-
-    if (FAILED(hr = struTempFilePath.Resize(MAX_PATH + 50)))
-    {
-        goto Finished;
-    }
-    dwRetVal = GetTempFileNameW(struTempPath.QueryStr(),
-        L"ANCM_WHERE",
-        0,
-        struTempFilePath.QueryStr());
-
-    if (FAILED(hr = struTempFilePath.SyncWithBuffer()))
-    {
-        goto Finished;
-    }
-
-    sa.nLength = sizeof(sa);
-    sa.lpSecurityDescriptor = NULL;
-    sa.bInheritHandle = TRUE;
-
-    hFile = CreateFile(struTempFilePath.QueryStr(),               // file name 
-        GENERIC_ALL,
-        FILE_SHARE_WRITE | FILE_SHARE_READ,
-        &sa,                  // default security 
-        OPEN_ALWAYS,         // existing file only 
-        FILE_ATTRIBUTE_NORMAL, // normal file 
-        NULL);                 // no template 
-
-    if (hFile == INVALID_HANDLE_VALUE)
+    if (!CreatePipe(&hStdOutReadPipe, &hStdOutWritePipe, &securityAttributes, 0))
     {
         hr = HRESULT_FROM_WIN32(GetLastError());
+        goto Finished;
     }
+
+    // Set stdout and error to redirect to the temp file.
+    startupInfo.cb = sizeof(startupInfo);
     startupInfo.dwFlags |= STARTF_USESTDHANDLES;
-    startupInfo.hStdOutput = hFile;
-    startupInfo.hStdError = hFile;
+    startupInfo.hStdOutput = hStdOutWritePipe;
+    startupInfo.hStdError = hStdOutWritePipe;
 
-    dotnetName = SysAllocString(L"\"C:\\Windows\\System32\\where.exe\" dotnet.exe");
+    // CreateProcess requires a mutable string to be passed to commandline
+    // See https://blogs.msdn.microsoft.com/oldnewthing/20090601-00/?p=18083/
+    pwzDotnetName = SysAllocString(L"\"C:\\Windows\\System32\\where.exe\" dotnet.exe");
 
-    result = CreateProcessW(NULL,
-        dotnetName,
+    fResult = CreateProcessW(NULL,
+        pwzDotnetName,
         NULL,
         NULL,
         TRUE,
@@ -435,38 +404,36 @@ HOSTFXR_UTILITY::CallWhere(_Out_ STRU* struDotnetLocation)
         &processInformation
     );
 
-    if (!result)
+    if (!fResult)
     {
-        printf("CreateProcess failed (%d).\n", GetLastError());
-        return 1;
+        hr = ERROR_PROCESS_ABORTED;
+        goto Finished;
     }
 
-    WaitForSingleObject(processInformation.hProcess, 1000); // TODO set this to be timeout based on config. 
+    WaitForSingleObject(processInformation.hProcess, pConfig->QueryRequestTimeoutInMS());
 
-    result = GetExitCodeProcess(processInformation.hProcess, &exitCode);
+    fResult = GetExitCodeProcess(processInformation.hProcess, &dwExitCode);
 
+    // Don't check the result of Closehandle here
     CloseHandle(processInformation.hProcess);
     CloseHandle(processInformation.hThread);
 
-    SysFreeString(dotnetName);
-
-    dwfilePointer = SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
-    if (dwfilePointer == INVALID_SET_FILE_POINTER)
+    // Reset file pointer to the beginning of the file. 
+    dwFilePointer = SetFilePointer(hStdOutReadPipe, 0, NULL, FILE_BEGIN);
+    if (dwFilePointer == INVALID_SET_FILE_POINTER)
     {
         hr = ERROR_FILE_INVALID;
         goto Finished;
     }
 
-    if (!ReadFile(hFile, dotnetLocations, 4096, &numBytesRead, NULL))
+    if (!ReadFile(hStdOutReadPipe, pzFileContents, 4096, &dwNumBytesRead, NULL))
     {
         goto Finished;
     }
-    dotnetLocationsString.CopyA(dotnetLocations, numBytesRead);
+    struDotnetLocationsString.CopyA(pzFileContents, dwNumBytesRead);
 
-    // Go through each line of the file, check if the path is valid.
-    // Log which dotnet exe we are using to stdout before invoking dotnet.exe
-    // Add good error message saying if this dotnet isn't the one you intended,
-    // make sure the bitness matches.
+    // Check the bitness of the currently running process
+    // matches the dotnet.exe found. 
     if (!IsWow64Process(GetCurrentProcess(), &fIsWow64Process))
     {
         // Calling IsWow64Process failed
@@ -487,23 +454,23 @@ HOSTFXR_UTILITY::CallWhere(_Out_ STRU* struDotnetLocation)
 
     while (!fFound)
     {
-        //
-        index = dotnetLocationsString.IndexOf(L"\r\n", prevIndex);
+        index = struDotnetLocationsString.IndexOf(L"\r\n", prevIndex);
         if (index == -1)
         {
             break;
         }
-        dotnetSubstring.Copy(dotnetLocationsString.QueryStr(), index - prevIndex);
+        struDotnetSubstring.Copy(struDotnetLocationsString.QueryStr(), index - prevIndex);
         prevIndex = index;
 
-        if (!GetBinaryTypeW(dotnetSubstring.QueryStr(), &dwBinaryType))
+        if (!GetBinaryTypeW(struDotnetSubstring.QueryStr(), &dwBinaryType))
         {
+            // TODO should we ignore this failure and continue to trying the next dotnet.exe?
             hr = HRESULT_FROM_WIN32(GetLastError());
             goto Finished;
         }
         if (fIsCurrentProcess64Bit == (dwBinaryType == SCS_64BIT_BINARY)) {
             // Found a valid dotnet.
-            struDotnetLocation->Copy(dotnetSubstring);
+            struDotnetPath->Copy(struDotnetSubstring);
             fFound = TRUE;
         }
     }
@@ -513,14 +480,19 @@ HOSTFXR_UTILITY::CallWhere(_Out_ STRU* struDotnetLocation)
         hr = ERROR_FILE_NOT_FOUND;
         goto Finished;
     }
+
 Finished:
 
     if (hFile != NULL)
     {
-        if (!CloseHandle(hFile)) 
+        if (!CloseHandle(hFile))
         {
             // TODO log warning.
         }
+    }
+    if (pwzDotnetName != NULL)
+    {
+        SysFreeString(pwzDotnetName);
     }
 
     return hr;
