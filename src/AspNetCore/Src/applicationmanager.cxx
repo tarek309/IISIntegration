@@ -124,11 +124,13 @@ APPLICATION_MANAGER::GetApplicationInfo(
         }
 
         *ppApplicationInfo = pApplicationInfo;
-        ReleaseSRWLockExclusive(&m_srwLock);
-        fExclusiveLock = FALSE;
 
         pApplicationInfo->StartMonitoringAppOffline();
         pApplicationInfo = NULL;
+
+        ReleaseSRWLockExclusive(&m_srwLock);
+        fExclusiveLock = FALSE;
+
     }
 
 Finished:
