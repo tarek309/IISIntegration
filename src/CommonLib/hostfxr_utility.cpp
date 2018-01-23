@@ -396,8 +396,12 @@ HOSTFXR_UTILITY::FindDotnetExePath(
 
     // CreateProcess requires a mutable string to be passed to commandline
     // See https://blogs.msdn.microsoft.com/oldnewthing/20090601-00/?p=18083/
-    pwzDotnetName = SysAllocString(L"\"C:\\Windows\\System32\\where.exe\" dotnet.exe");
-
+    pwzDotnetName = SysAllocString(L"\"where.exe\" dotnet.exe");
+    if (pwzDotnetName == NULL)
+    {
+        hr = E_OUTOFMEMORY;
+        goto Finished;
+    }
     fResult = CreateProcessW(NULL,
         pwzDotnetName,
         NULL,
@@ -412,18 +416,22 @@ HOSTFXR_UTILITY::FindDotnetExePath(
 
     if (!fResult)
     {
-        hr = ERROR_PROCESS_ABORTED;
+        hr = HRESULT_FROM_WIN32(GetLastError());
         goto Finished;
     }
 
-    WaitForSingleObject(processInformation.hProcess, pConfig->QueryRequestTimeoutInMS());
+    if (WaitForSingleObject(processInformation.hProcess, pConfig->QueryRequestTimeoutInMS()) != WAIT_OBJECT_0)
+    {
+        TerminateProcess(processInformation.hProcess, 1);
+    }
 
-    fResult = GetExitCodeProcess(processInformation.hProcess, &dwExitCode);
+    if (!GetExitCodeProcess(processInformation.hProcess, &dwExitCode) ||
+        dwExitCode != 0)
+    {
+        hr = HRESULT_FROM_WIN32(GetLastError());
+        goto Finished;
+    }
 
-    // Don't check the result of Closehandle here
-    // Just a guarantee the process is closed.
-    CloseHandle(processInformation.hProcess);
-    CloseHandle(processInformation.hThread);
 
     // Reset file pointer to the beginning of the file. 
     dwFilePointer = SetFilePointer(hStdOutReadPipe, 0, NULL, FILE_BEGIN);
@@ -438,14 +446,18 @@ HOSTFXR_UTILITY::FindDotnetExePath(
         hr = ERROR_FILE_INVALID;
         goto Finished;
     }
-    if (dwNumBytesRead == READ_BUFFER_SIZE)
+    if (dwNumBytesRead >= READ_BUFFER_SIZE)
     {
         // This shouldn't ever be this large. We could continue to call ReadFile in a loop,
         // however I'd rather error out here and report an issue.
         hr = ERROR_FILE_TOO_LARGE;
         goto Finished;
     }
-    struDotnetLocationsString.CopyA(pzFileContents, dwNumBytesRead);
+
+    if (FAILED(hr = struDotnetLocationsString.CopyA(pzFileContents, dwNumBytesRead)))
+    {
+        goto Finished;
+    }
 
     // Check the bitness of the currently running process
     // matches the dotnet.exe found. 
@@ -474,7 +486,10 @@ HOSTFXR_UTILITY::FindDotnetExePath(
         {
             break;
         }
-        struDotnetSubstring.Copy(struDotnetLocationsString.QueryStr(), index - prevIndex);
+        if (FAILED(hr = struDotnetSubstring.Copy(struDotnetLocationsString.QueryStr(), index - prevIndex)))
+        {
+            goto Finished;
+        }
         prevIndex = index;
 
         if (!GetBinaryTypeW(struDotnetSubstring.QueryStr(), &dwBinaryType))
@@ -498,6 +513,14 @@ HOSTFXR_UTILITY::FindDotnetExePath(
 
 Finished:
 
+    if (processInformation.hProcess != NULL)
+    {
+        CloseHandle(processInformation.hProcess);
+    }
+    if (processInformation.hThread != NULL)
+    {
+        CloseHandle(processInformation.hThread);
+    }
     if (pwzDotnetName != NULL)
     {
         SysFreeString(pwzDotnetName);
