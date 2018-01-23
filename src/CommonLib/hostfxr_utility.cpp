@@ -382,6 +382,11 @@ HOSTFXR_UTILITY::FindDotnetExePath(
         hr = HRESULT_FROM_WIN32(GetLastError());
         goto Finished;
     }
+    if (!SetHandleInformation(hStdOutReadPipe, HANDLE_FLAG_INHERIT, 0))
+    {
+        hr = ERROR_FILE_INVALID;
+        goto Finished;
+    }
 
     // Set stdout and error to redirect to the temp file.
     startupInfo.cb = sizeof(startupInfo);
