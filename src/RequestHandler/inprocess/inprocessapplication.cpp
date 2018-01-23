@@ -572,7 +572,7 @@ Finished:
             ASPNETCORE_EVENT_INPROCESS_THREAD_EXCEPTION_MSG,
             m_pConfig->QueryApplicationPath()->QueryStr(),
             m_pConfig->QueryApplicationPhysicalPath()->QueryStr(),
-            m_ProcessExitCode)))
+            GetExceptionCode())))
         {
             UTILITY::LogEvent(g_hEventLog,
                 EVENTLOG_ERROR_TYPE,
@@ -601,7 +601,11 @@ Finished:
 // Note, this will not 
 // 
 HRESULT
-IN_PROCESS_APPLICATION::RunDotnetApplication(DWORD argc, CONST PCWSTR* argv, hostfxr_main_fn pProc)
+IN_PROCESS_APPLICATION::RunDotnetApplication(
+    DWORD argc,
+    CONST PCWSTR* argv,
+    hostfxr_main_fn pProc
+)
 {
     HRESULT hr   = S_OK;
     __try
@@ -621,6 +625,5 @@ INT
 IN_PROCESS_APPLICATION::FilterException(unsigned int, struct _EXCEPTION_POINTERS*)
 {
     // We assume that any exception is a failure as the applicaiton didn't start or there was a startup error.
-
     return EXCEPTION_EXECUTE_HANDLER;
 }
