@@ -323,7 +323,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
     pConfig->SetHostFxrArguments(argc + 2, argv);
     goto Finished;
 
-    Failure:
+Failure:
     if (argv != NULL)
     {
         for (DWORD i = 0; i < dwArgsProcessed; i++)
@@ -334,7 +334,7 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
 
     delete[] argv;
 
-    Finished:
+Finished:
     if (pwzArgs != NULL)
     {
         LocalFree(pwzArgs);
@@ -348,10 +348,11 @@ HOSTFXR_UTILITY::SetHostFxrArguments(
 // Respects path ordering.
 
 HRESULT
-HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* struDotnetPath)
+HOSTFXR_UTILITY::FindDotnetExePath(
+    _In_ ASPNETCORE_CONFIG* pConfig,
+    _Out_ STRU* struDotnetPath)
 {
     HRESULT             hr = S_OK;
-    HANDLE              hFile = NULL;
     STARTUPINFOW        startupInfo = { 0 };
     PROCESS_INFORMATION processInformation = { 0 };
     SECURITY_ATTRIBUTES securityAttributes;
@@ -368,7 +369,7 @@ HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* stru
     BOOL                fIsWow64Process;
     BOOL                fIsCurrentProcess64Bit;
     BOOL                fFound = FALSE;
-    CHAR                pzFileContents[4096];
+    CHAR                pzFileContents[READ_BUFFER_SIZE];
     HANDLE              hStdOutReadPipe = NULL;
     HANDLE              hStdOutWritePipe = NULL;
 
@@ -415,6 +416,7 @@ HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* stru
     fResult = GetExitCodeProcess(processInformation.hProcess, &dwExitCode);
 
     // Don't check the result of Closehandle here
+    // Just a guarantee the process is closed.
     CloseHandle(processInformation.hProcess);
     CloseHandle(processInformation.hThread);
 
@@ -426,8 +428,16 @@ HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* stru
         goto Finished;
     }
 
-    if (!ReadFile(hStdOutReadPipe, pzFileContents, 4096, &dwNumBytesRead, NULL))
+    if (!ReadFile(hStdOutReadPipe, pzFileContents, READ_BUFFER_SIZE, &dwNumBytesRead, NULL))
     {
+        hr = ERROR_FILE_INVALID;
+        goto Finished;
+    }
+    if (dwNumBytesRead == READ_BUFFER_SIZE)
+    {
+        // This shouldn't ever be this large. We could continue to call ReadFile in a loop,
+        // however I'd rather error out here and report an issue.
+        hr = ERROR_FILE_TOO_LARGE;
         goto Finished;
     }
     struDotnetLocationsString.CopyA(pzFileContents, dwNumBytesRead);
@@ -483,13 +493,6 @@ HOSTFXR_UTILITY::FindDotnetExePath( ASPNETCORE_CONFIG* pConfig, _Out_ STRU* stru
 
 Finished:
 
-    if (hFile != NULL)
-    {
-        if (!CloseHandle(hFile))
-        {
-            // TODO log warning.
-        }
-    }
     if (pwzDotnetName != NULL)
     {
         SysFreeString(pwzDotnetName);
